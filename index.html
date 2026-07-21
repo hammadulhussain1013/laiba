@@ -1,822 +1,646 @@
-/* ═══════════════════════════════════════════════════════════════
-   FOR LAIBA ❤️ — script.js
-   Content (reasons/wishes/countries/etc.) is rendered by PHP already.
-   This file only adds motion, sound, and the map/letter/tree interactions.
-   No Three.js, no Lenis — plain canvas + CSS transforms, so it stays
-   light and fast even on an older phone.
-   ═══════════════════════════════════════════════════════════════ */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>For Laiba ❤️</title>
+<meta name="description" content="A little universe, made only for Laiba." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
-(() => {
-"use strict";
+<div class="aurora" aria-hidden="true">
+  <div class="aurora__blob aurora__blob--1"></div>
+  <div class="aurora__blob aurora__blob--2"></div>
+</div>
+<canvas id="ambient-canvas" aria-hidden="true"></canvas>
+<div id="cursor" class="cursor" aria-hidden="true"><div class="cursor__heart">❤</div></div>
 
-const $  = (s, c = document) => c.querySelector(s);
-const $$ = (s, c = document) => [...c.querySelectorAll(s)];
-const rand = (a, b) => a + Math.random() * (b - a);
-const pick = arr => arr[Math.floor(Math.random() * arr.length)];
-const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-const RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const FINE_POINTER = window.matchMedia("(pointer: fine)").matches;
-const DATA = window.SITE_DATA || { reasons: [], wishes: [], starReasons: [], starSurprises: [], countries: [], continents: {} };
+<!-- ══════════════ LOADING SCREEN ══════════════ -->
+<div id="loader" class="loader" role="status">
+  <div class="loader__ring" aria-hidden="true">
+    <svg viewBox="0 0 120 120">
+      <circle class="loader__ring-bg" cx="60" cy="60" r="52"></circle>
+      <circle class="loader__ring-fg" cx="60" cy="60" r="52"></circle>
+    </svg>
+    <div class="loader__bloom" aria-hidden="true">🌸</div>
+  </div>
+  <p class="loader__text">Preparing something special for Laiba…</p>
+</div>
 
-if (window.gsap) gsap.registerPlugin(ScrollTrigger);
+<!-- ══════════════ TAP-TO-BEGIN GATE (this is what turns sound on) ══════════════ -->
+<div id="gate" class="gate">
+  <button id="gate-btn" class="gate__btn">
+    <span class="gate__heart">❤</span>
+    <span>tap to begin, Laiba</span>
+  </button>
+  <p class="gate__hint">turns the music on too</p>
+</div>
 
-function onVisible(el, cb) {
-  const io = new IntersectionObserver(es => es.forEach(e => cb(e.isIntersecting)), { threshold: 0.05 });
-  io.observe(el);
-  return io;
-}
+<div class="music-dock" id="music-dock">
+  <button id="music-toggle" class="music-dock__btn" aria-label="Mute music" title="Music">
+    <span class="music-dock__icon">♪</span>
+  </button>
+  <input id="music-volume" class="music-dock__vol" type="range" min="0" max="100" value="55" aria-label="Music volume" />
+</div>
 
-/* ── AMBIENT BACKGROUND (light: ~26 soft particles, no per-frame shadowBlur) ── */
-(() => {
-  const cv = $("#ambient-canvas");
-  const ctx = cv.getContext("2d");
-  let W, H, running = true, parts = [];
-  function resize() { W = cv.width = innerWidth; H = cv.height = innerHeight; }
-  resize(); addEventListener("resize", resize);
+<main id="experience" class="experience" style="opacity:0">
 
-  function make(kind) {
-    return {
-      kind, x: rand(0, W), y: kind === "heart" ? H + 20 : rand(0, H),
-      r: kind === "firefly" ? rand(1.6, 2.6) : rand(0.9, 1.7),
-      a: rand(0.2, 0.7), da: rand(0.003, 0.008) * (Math.random() < 0.5 ? -1 : 1),
-      vx: rand(-0.1, 0.1), vy: kind === "heart" ? rand(-0.45, -0.22) : rand(-0.04, 0.04),
-      color: kind === "firefly" ? "245,200,107" : kind === "heart" ? "255,94,168" : "255,255,255",
-    };
-  }
-  const N = RM ? 0 : 26;
-  for (let i = 0; i < N; i++) parts.push(make(Math.random() < 0.3 ? "firefly" : "star"));
+  <section class="hero section" id="hero">
+    <div class="hero__petals" aria-hidden="true"></div>
+    <div class="hero__inner" data-parallax-scene>
+      <p class="hero__eyebrow" data-depth="0.3">a little universe, made for one person</p>
+      <h1 class="hero__title" data-depth="0.5">
+        <span class="split-line">Hi&nbsp;Laiba</span>
+        <span class="hero__heart-emoji split-line">❤️</span>
+      </h1>
+      <p class="hero__subtitle" data-depth="0.35">“I made something only for you.”</p>
+      <p class="hero__hint">scroll slowly · click anywhere for hearts</p>
+    </div>
+    <div class="hero__scrollcue" aria-hidden="true"><span></span></div>
+  </section>
 
-  function tick() {
-    if (!running) return requestAnimationFrame(tick);
-    ctx.clearRect(0, 0, W, H);
-    if (!RM && Math.random() < 0.006 && parts.length < N + 6) parts.push(make("heart"));
-    for (let i = parts.length - 1; i >= 0; i--) {
-      const p = parts[i];
-      p.x += p.vx; p.y += p.vy; p.a += p.da;
-      if (p.a > 0.75 || p.a < 0.15) p.da *= -1;
-      if (p.y < -30 && p.kind === "heart") { parts.splice(i, 1); continue; }
-      if (p.x < -20) p.x = W + 20; if (p.x > W + 20) p.x = -20;
-      if (p.y < -20 && p.kind !== "heart") p.y = H + 20;
-      if (p.kind === "heart") {
-        ctx.globalAlpha = clamp(p.a, 0, 0.5);
-        ctx.font = "12px serif"; ctx.fillStyle = "rgb(255,94,168)";
-        ctx.fillText("❤", p.x, p.y);
-      } else {
-        ctx.globalAlpha = clamp(p.a, 0, 0.7);
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgb(${p.color})`; ctx.fill();
-      }
-    }
-    ctx.globalAlpha = 1;
-    requestAnimationFrame(tick);
-  }
-  tick();
-  document.addEventListener("visibilitychange", () => (running = !document.hidden));
-})();
+  <section class="chapter section" id="ch1">
+    <div class="chapter__scene chapter__scene--sunrise" aria-hidden="true">
+      <div class="sunrise__sun"></div>
+      <div class="sunrise__birds"><span class="bird">𓅰</span><span class="bird">𓅯</span><span class="bird">𓅰</span></div>
+      <div class="sunrise__flowers">
+        <span class="flower">🌷</span><span class="flower">🌸</span><span class="flower">🌼</span><span class="flower">🌷</span><span class="flower">🌺</span>
+      </div>
+    </div>
+    <div class="chapter__copy">
+      <span class="chapter__num">chapter one</span>
+      <h2 class="chapter__title" data-split>When you entered my life…</h2>
+      <p class="chapter__body">everything quietly turned toward the light, the way flowers do at sunrise.</p>
+    </div>
+  </section>
 
-/* ── LOADER (short, and skipped almost entirely under reduced motion) ─── */
-(() => {
-  const loader = $("#loader");
-  const ring = $(".loader__ring-fg");
-  const DURATION = RM ? 400 : 1800;
-  const CIRC = 2 * Math.PI * 52;
-  const t0 = performance.now();
-  (function step(now) {
-    const p = clamp((now - t0) / DURATION, 0, 1);
-    ring.style.strokeDashoffset = CIRC * (1 - p);
-    if (p < 1) requestAnimationFrame(step); else finish();
-  })(t0);
-  function finish() {
-    loader.classList.add("is-done");
-    $("#gate").classList.add("is-visible");
-    setTimeout(() => loader.remove(), 1300);
-  }
-})();
+  <section class="chapter section" id="ch2">
+    <div class="chapter__scene" aria-hidden="true">
+      <div class="phone">
+        <div class="phone__screen">
+          <div class="phone__time">11:11</div>
+          <div class="phone__notif" id="phone-notif">
+            <div class="phone__notif-icon">💬</div>
+            <div class="phone__notif-text"><strong>Laiba</strong><span>hey you ❤️</span></div>
+          </div>
+        </div>
+        <div class="phone__pulse"></div>
+      </div>
+    </div>
+    <div class="chapter__copy">
+      <span class="chapter__num">chapter two</span>
+      <h2 class="chapter__title" data-split>You became my favorite notification.</h2>
+      <p class="chapter__body">one name on my screen, and the whole day gets softer.</p>
+    </div>
+  </section>
 
-/* ── SOUND: Web Audio, unlocked explicitly by the gate tap ─────────────
-   Browsers refuse to play audio before a real user gesture. Instead of
-   hoping some click fires early, the gate button IS that gesture: one
-   tap both starts the music and unlocks every sound effect after it. */
-const sound = (() => {
-  let ctx = null, master, wet, started = false, muted = false, timer = null, volume = 0.55;
+  <section class="chapter section" id="ch3">
+    <div class="chapter__scene chapter__scene--clouds" aria-hidden="true">
+      <div class="cloud cloud--1"></div><div class="cloud cloud--2"></div><div class="cloud cloud--3"></div>
+    </div>
+    <div class="chapter__copy">
+      <span class="chapter__num">chapter three</span>
+      <h2 class="chapter__title" data-split>You became my peace.</h2>
+      <p class="chapter__body">the quiet in the middle of everything loud.</p>
+    </div>
+  </section>
 
-  function init() {
-    if (ctx) return;
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-    master = ctx.createGain(); master.gain.value = volume;
-    const delay = ctx.createDelay(1.2); delay.delayTime.value = 0.4;
-    const fb = ctx.createGain(); fb.gain.value = 0.3;
-    wet = ctx.createGain(); wet.gain.value = 0.3;
-    delay.connect(fb); fb.connect(delay);
-    master.connect(ctx.destination);
-    master.connect(delay); delay.connect(wet); wet.connect(ctx.destination);
-  }
+  <section class="chapter section" id="ch4">
+    <div class="chapter__copy">
+      <span class="chapter__num">chapter four</span>
+      <h2 class="chapter__title" data-split>You became my happiest memory.</h2>
+      <p class="chapter__body">and somehow, you keep making new ones.</p>
+    </div>
+    <div class="frames" aria-hidden="true">
+      <figure class="frame"><div class="frame__ph">🌙<span>add our photo here</span></div><figcaption>that night</figcaption></figure>
+      <figure class="frame"><div class="frame__ph">☕<span>add our photo here</span></div><figcaption>that morning</figcaption></figure>
+      <figure class="frame"><div class="frame__ph">😂<span>add our photo here</span></div><figcaption>that laugh</figcaption></figure>
+      <figure class="frame"><div class="frame__ph">🌸<span>add our photo here</span></div><figcaption>that day</figcaption></figure>
+    </div>
+  </section>
 
-  function note(freq, t, dur = 2.2, gain = 0.15, dest = master) {
-    const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.value = freq;
-    const g = ctx.createGain();
-    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1800;
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + 0.03);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(lp); lp.connect(dest);
-    o.start(t); o.stop(t + dur + 0.05);
-  }
+  <section class="chapter chapter--hand section" id="ch5">
+    <div class="chapter__copy chapter__copy--center">
+      <span class="chapter__num">chapter five</span>
+      <h2 class="chapter__hand" id="handwriting">You became my favorite person.</h2>
+      <div class="chapter__glow" aria-hidden="true"></div>
+    </div>
+  </section>
 
-  const CHORDS = [
-    [174.61, 220.0, 261.63, 329.63],
-    [220.0, 261.63, 329.63, 392.0],
-    [146.83, 220.0, 261.63, 349.23],
-    [233.08, 293.66, 349.23, 440.0]
-  ];
-  let chordIdx = 0, nextTime = 0;
-  function scheduler() {
-    const ahead = 0.6;
-    while (nextTime < ctx.currentTime + ahead) {
-      const chord = CHORDS[chordIdx % CHORDS.length];
-      note(chord[0] / 2, nextTime, 3.4, 0.09);
-      chord.forEach((f, i) => note(f, nextTime + i * 0.55, 2.4, 0.11));
-      nextTime += 3.2; chordIdx++;
-    }
-  }
+  <!-- ── 100 REASONS (rendered server-side, no JS required to read them) ── -->
+  <section class="reasons section" id="reasons">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>100 reasons, floating just for you</h2>
+      <p class="section-head__sub">tap any card, Laiba — every single one is true.</p>
+    </header>
+    <div class="reasons__field" id="reasons-field">
+              <button class="reason-card" data-index="0" style="--float-delay:-0s">
+          <span class="reason-card__num">01</span>I love your smile.        </button>
+              <button class="reason-card" data-index="1" style="--float-delay:-0.5s">
+          <span class="reason-card__num">02</span>I love your kindness.        </button>
+              <button class="reason-card" data-index="2" style="--float-delay:-1s">
+          <span class="reason-card__num">03</span>I love how you make ordinary days special.        </button>
+              <button class="reason-card" data-index="3" style="--float-delay:-1.5s">
+          <span class="reason-card__num">04</span>I love your laugh.        </button>
+              <button class="reason-card" data-index="4" style="--float-delay:-2s">
+          <span class="reason-card__num">05</span>I love your eyes.        </button>
+              <button class="reason-card" data-index="5" style="--float-delay:-2.5s">
+          <span class="reason-card__num">06</span>I love the way you say my name.        </button>
+              <button class="reason-card" data-index="6" style="--float-delay:-3s">
+          <span class="reason-card__num">07</span>I love how safe you feel.        </button>
+              <button class="reason-card" data-index="7" style="--float-delay:-3.5s">
+          <span class="reason-card__num">08</span>I love your voice on a tired day.        </button>
+              <button class="reason-card" data-index="8" style="--float-delay:-4s">
+          <span class="reason-card__num">09</span>I love your good-morning texts.        </button>
+              <button class="reason-card" data-index="9" style="--float-delay:-4.5s">
+          <span class="reason-card__num">10</span>I love how you notice small things.        </button>
+              <button class="reason-card" data-index="10" style="--float-delay:-5s">
+          <span class="reason-card__num">11</span>I love your patience with me.        </button>
+              <button class="reason-card" data-index="11" style="--float-delay:-0s">
+          <span class="reason-card__num">12</span>I love your dreams, and how big they are.        </button>
+              <button class="reason-card" data-index="12" style="--float-delay:-0.5s">
+          <span class="reason-card__num">13</span>I love how you care for people.        </button>
+              <button class="reason-card" data-index="13" style="--float-delay:-1s">
+          <span class="reason-card__num">14</span>I love your honesty.        </button>
+              <button class="reason-card" data-index="14" style="--float-delay:-1.5s">
+          <span class="reason-card__num">15</span>I love the way you scrunch your nose.        </button>
+              <button class="reason-card" data-index="15" style="--float-delay:-2s">
+          <span class="reason-card__num">16</span>I love your late-night thoughts.        </button>
+              <button class="reason-card" data-index="16" style="--float-delay:-2.5s">
+          <span class="reason-card__num">17</span>I love how you forgive.        </button>
+              <button class="reason-card" data-index="17" style="--float-delay:-3s">
+          <span class="reason-card__num">18</span>I love your courage.        </button>
+              <button class="reason-card" data-index="18" style="--float-delay:-3.5s">
+          <span class="reason-card__num">19</span>I love the way you listen.        </button>
+              <button class="reason-card" data-index="19" style="--float-delay:-4s">
+          <span class="reason-card__num">20</span>I love your silly jokes.        </button>
+              <button class="reason-card" data-index="20" style="--float-delay:-4.5s">
+          <span class="reason-card__num">21</span>I love your serious face when you focus.        </button>
+              <button class="reason-card" data-index="21" style="--float-delay:-5s">
+          <span class="reason-card__num">22</span>I love how you celebrate tiny wins.        </button>
+              <button class="reason-card" data-index="22" style="--float-delay:-0s">
+          <span class="reason-card__num">23</span>I love your taste in everything.        </button>
+              <button class="reason-card" data-index="23" style="--float-delay:-0.5s">
+          <span class="reason-card__num">24</span>I love your warmth.        </button>
+              <button class="reason-card" data-index="24" style="--float-delay:-1s">
+          <span class="reason-card__num">25</span>I love how you remember details.        </button>
+              <button class="reason-card" data-index="25" style="--float-delay:-1.5s">
+          <span class="reason-card__num">26</span>I love that you check on me.        </button>
+              <button class="reason-card" data-index="26" style="--float-delay:-2s">
+          <span class="reason-card__num">27</span>I love your hugs, even imagined ones.        </button>
+              <button class="reason-card" data-index="27" style="--float-delay:-2.5s">
+          <span class="reason-card__num">28</span>I love how time disappears with you.        </button>
+              <button class="reason-card" data-index="28" style="--float-delay:-3s">
+          <span class="reason-card__num">29</span>I love your stubbornness (a little).        </button>
+              <button class="reason-card" data-index="29" style="--float-delay:-3.5s">
+          <span class="reason-card__num">30</span>I love your soft heart.        </button>
+              <button class="reason-card" data-index="30" style="--float-delay:-4s">
+          <span class="reason-card__num">31</span>I love how you make me want to be better.        </button>
+              <button class="reason-card" data-index="31" style="--float-delay:-4.5s">
+          <span class="reason-card__num">32</span>I love your excitement over small things.        </button>
+              <button class="reason-card" data-index="32" style="--float-delay:-5s">
+          <span class="reason-card__num">33</span>I love your calm in my chaos.        </button>
+              <button class="reason-card" data-index="33" style="--float-delay:-0s">
+          <span class="reason-card__num">34</span>I love how you handle bad days.        </button>
+              <button class="reason-card" data-index="34" style="--float-delay:-0.5s">
+          <span class="reason-card__num">35</span>I love the future I picture with you.        </button>
+              <button class="reason-card" data-index="35" style="--float-delay:-1s">
+          <span class="reason-card__num">36</span>I love your gentle teasing.        </button>
+              <button class="reason-card" data-index="36" style="--float-delay:-1.5s">
+          <span class="reason-card__num">37</span>I love how your messages fix my mood.        </button>
+              <button class="reason-card" data-index="37" style="--float-delay:-2s">
+          <span class="reason-card__num">38</span>I love your curiosity.        </button>
+              <button class="reason-card" data-index="38" style="--float-delay:-2.5s">
+          <span class="reason-card__num">39</span>I love the sound of your happiness.        </button>
+              <button class="reason-card" data-index="39" style="--float-delay:-3s">
+          <span class="reason-card__num">40</span>I love how real you are.        </button>
+              <button class="reason-card" data-index="40" style="--float-delay:-3.5s">
+          <span class="reason-card__num">41</span>I love your loyalty.        </button>
+              <button class="reason-card" data-index="41" style="--float-delay:-4s">
+          <span class="reason-card__num">42</span>I love your comfort in silence.        </button>
+              <button class="reason-card" data-index="42" style="--float-delay:-4.5s">
+          <span class="reason-card__num">43</span>I love the way you love.        </button>
+              <button class="reason-card" data-index="43" style="--float-delay:-5s">
+          <span class="reason-card__num">44</span>I love your strength you don&#039;t even see.        </button>
+              <button class="reason-card" data-index="44" style="--float-delay:-0s">
+          <span class="reason-card__num">45</span>I love how you make strangers smile.        </button>
+              <button class="reason-card" data-index="45" style="--float-delay:-0.5s">
+          <span class="reason-card__num">46</span>I love your sleepy voice.        </button>
+              <button class="reason-card" data-index="46" style="--float-delay:-1s">
+          <span class="reason-card__num">47</span>I love your favorite-song energy.        </button>
+              <button class="reason-card" data-index="47" style="--float-delay:-1.5s">
+          <span class="reason-card__num">48</span>I love how you defend the people you love.        </button>
+              <button class="reason-card" data-index="48" style="--float-delay:-2s">
+          <span class="reason-card__num">49</span>I love that you chose me.        </button>
+              <button class="reason-card" data-index="49" style="--float-delay:-2.5s">
+          <span class="reason-card__num">50</span>I love your grace when things go wrong.        </button>
+              <button class="reason-card" data-index="50" style="--float-delay:-3s">
+          <span class="reason-card__num">51</span>I love your randomness.        </button>
+              <button class="reason-card" data-index="51" style="--float-delay:-3.5s">
+          <span class="reason-card__num">52</span>I love your focus when you talk about your passions.        </button>
+              <button class="reason-card" data-index="52" style="--float-delay:-4s">
+          <span class="reason-card__num">53</span>I love your version of every story.        </button>
+              <button class="reason-card" data-index="53" style="--float-delay:-4.5s">
+          <span class="reason-card__num">54</span>I love your standards.        </button>
+              <button class="reason-card" data-index="54" style="--float-delay:-5s">
+          <span class="reason-card__num">55</span>I love how you never give up on us.        </button>
+              <button class="reason-card" data-index="55" style="--float-delay:-0s">
+          <span class="reason-card__num">56</span>I love your little rituals.        </button>
+              <button class="reason-card" data-index="56" style="--float-delay:-0.5s">
+          <span class="reason-card__num">57</span>I love your handwriting.        </button>
+              <button class="reason-card" data-index="57" style="--float-delay:-1s">
+          <span class="reason-card__num">58</span>I love how weekends feel with you in them.        </button>
+              <button class="reason-card" data-index="58" style="--float-delay:-1.5s">
+          <span class="reason-card__num">59</span>I love your reactions to surprises.        </button>
+              <button class="reason-card" data-index="59" style="--float-delay:-2s">
+          <span class="reason-card__num">60</span>I love your empathy.        </button>
+              <button class="reason-card" data-index="60" style="--float-delay:-2.5s">
+          <span class="reason-card__num">61</span>I love that you laugh at my worst jokes.        </button>
+              <button class="reason-card" data-index="61" style="--float-delay:-3s">
+          <span class="reason-card__num">62</span>I love how you say &#039;I&#039;m fine&#039; and I know everything anyway.        </button>
+              <button class="reason-card" data-index="62" style="--float-delay:-3.5s">
+          <span class="reason-card__num">63</span>I love your ambition.        </button>
+              <button class="reason-card" data-index="63" style="--float-delay:-4s">
+          <span class="reason-card__num">64</span>I love the peace you bring.        </button>
+              <button class="reason-card" data-index="64" style="--float-delay:-4.5s">
+          <span class="reason-card__num">65</span>I love your photos, all of them.        </button>
+              <button class="reason-card" data-index="65" style="--float-delay:-5s">
+          <span class="reason-card__num">66</span>I love how you turn nothing into a memory.        </button>
+              <button class="reason-card" data-index="66" style="--float-delay:-0s">
+          <span class="reason-card__num">67</span>I love your comfort food choices.        </button>
+              <button class="reason-card" data-index="67" style="--float-delay:-0.5s">
+          <span class="reason-card__num">68</span>I love your overthinking, because it means you care.        </button>
+              <button class="reason-card" data-index="68" style="--float-delay:-1s">
+          <span class="reason-card__num">69</span>I love how the world softens around you.        </button>
+              <button class="reason-card" data-index="69" style="--float-delay:-1.5s">
+          <span class="reason-card__num">70</span>I love your first-of-the-month optimism.        </button>
+              <button class="reason-card" data-index="70" style="--float-delay:-2s">
+          <span class="reason-card__num">71</span>I love your playlists.        </button>
+              <button class="reason-card" data-index="71" style="--float-delay:-2.5s">
+          <span class="reason-card__num">72</span>I love your bravery in being yourself.        </button>
+              <button class="reason-card" data-index="72" style="--float-delay:-3s">
+          <span class="reason-card__num">73</span>I love your timing.        </button>
+              <button class="reason-card" data-index="73" style="--float-delay:-3.5s">
+          <span class="reason-card__num">74</span>I love how you appear in my plans without trying.        </button>
+              <button class="reason-card" data-index="74" style="--float-delay:-4s">
+          <span class="reason-card__num">75</span>I love your questions.        </button>
+              <button class="reason-card" data-index="75" style="--float-delay:-4.5s">
+          <span class="reason-card__num">76</span>I love your answers.        </button>
+              <button class="reason-card" data-index="76" style="--float-delay:-5s">
+          <span class="reason-card__num">77</span>I love the way you get excited about food.        </button>
+              <button class="reason-card" data-index="77" style="--float-delay:-0s">
+          <span class="reason-card__num">78</span>I love your faith in good things.        </button>
+              <button class="reason-card" data-index="78" style="--float-delay:-0.5s">
+          <span class="reason-card__num">79</span>I love the space you hold for me.        </button>
+              <button class="reason-card" data-index="79" style="--float-delay:-1s">
+          <span class="reason-card__num">80</span>I love your midnight energy.        </button>
+              <button class="reason-card" data-index="80" style="--float-delay:-1.5s">
+          <span class="reason-card__num">81</span>I love your morning grumpiness (it&#039;s cute).        </button>
+              <button class="reason-card" data-index="81" style="--float-delay:-2s">
+          <span class="reason-card__num">82</span>I love your ideas.        </button>
+              <button class="reason-card" data-index="82" style="--float-delay:-2.5s">
+          <span class="reason-card__num">83</span>I love how you make waiting feel okay.        </button>
+              <button class="reason-card" data-index="83" style="--float-delay:-3s">
+          <span class="reason-card__num">84</span>I love your presence, even through a screen.        </button>
+              <button class="reason-card" data-index="84" style="--float-delay:-3.5s">
+          <span class="reason-card__num">85</span>I love your standards for kindness.        </button>
+              <button class="reason-card" data-index="85" style="--float-delay:-4s">
+          <span class="reason-card__num">86</span>I love your happy dance.        </button>
+              <button class="reason-card" data-index="86" style="--float-delay:-4.5s">
+          <span class="reason-card__num">87</span>I love how you remember what I forget.        </button>
+              <button class="reason-card" data-index="87" style="--float-delay:-5s">
+          <span class="reason-card__num">88</span>I love your gentleness with yourself, when you allow it.        </button>
+              <button class="reason-card" data-index="88" style="--float-delay:-0s">
+          <span class="reason-card__num">89</span>I love your fire.        </button>
+              <button class="reason-card" data-index="89" style="--float-delay:-0.5s">
+          <span class="reason-card__num">90</span>I love your softness.        </button>
+              <button class="reason-card" data-index="90" style="--float-delay:-1s">
+          <span class="reason-card__num">91</span>I love how home is a person now.        </button>
+              <button class="reason-card" data-index="91" style="--float-delay:-1.5s">
+          <span class="reason-card__num">92</span>I love the story of us so far.        </button>
+              <button class="reason-card" data-index="92" style="--float-delay:-2s">
+          <span class="reason-card__num">93</span>I love the chapters we haven&#039;t written.        </button>
+              <button class="reason-card" data-index="93" style="--float-delay:-2.5s">
+          <span class="reason-card__num">94</span>I love your tomorrow, and the one after.        </button>
+              <button class="reason-card" data-index="94" style="--float-delay:-3s">
+          <span class="reason-card__num">95</span>I love that no distance changes this.        </button>
+              <button class="reason-card" data-index="95" style="--float-delay:-3.5s">
+          <span class="reason-card__num">96</span>I love you on your best days.        </button>
+              <button class="reason-card" data-index="96" style="--float-delay:-4s">
+          <span class="reason-card__num">97</span>I love you on your worst days.        </button>
+              <button class="reason-card" data-index="97" style="--float-delay:-4.5s">
+          <span class="reason-card__num">98</span>I love you quietly.        </button>
+              <button class="reason-card" data-index="98" style="--float-delay:-5s">
+          <span class="reason-card__num">99</span>I love you loudly.        </button>
+              <button class="reason-card" data-index="99" style="--float-delay:-0s">
+          <span class="reason-card__num">100</span>I love you. That&#039;s the whole reason.        </button>
+          </div>
+  </section>
 
-  function start() {
-    init();
-    if (ctx.state === "suspended") ctx.resume();
-    if (started) return;
-    started = true;
-    nextTime = ctx.currentTime + 0.1;
-    timer = setInterval(scheduler, 250);
-    const btn = $("#music-toggle");
-    btn.classList.add("is-playing");
-    btn.setAttribute("aria-label", "Mute music");
-  }
+  <section class="counter section" id="counter-section">
+    <p class="counter__label">Reasons I Love You</p>
+    <div class="counter__value" id="counter-value">1</div>
+    <p class="counter__foot" id="counter-foot">…and counting</p>
+    <canvas id="counter-canvas" class="counter__canvas" aria-hidden="true"></canvas>
+  </section>
 
-  function toggleMusic() {
-    if (!started) { start(); return; }
-    muted = !muted;
-    master.gain.linearRampToValueAtTime(muted ? 0.0001 : volume, ctx.currentTime + 0.35);
-    const btn = $("#music-toggle");
-    btn.classList.toggle("is-muted", muted);
-    btn.classList.toggle("is-playing", !muted);
-    btn.setAttribute("aria-label", muted ? "Unmute music" : "Mute music");
-  }
+  <section class="timeline section" id="timeline">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>Our little timeline</h2>
+      <p class="section-head__sub">every milestone unlocks as you arrive.</p>
+    </header>
+    <div class="timeline__track">
+      <div class="timeline__line" aria-hidden="true"><div class="timeline__line-fill"></div></div>
+              <div class="milestone">
+          <div class="milestone__dot">✨</div>
+          <div class="milestone__card"><h3>First Smile</h3><p>the moment the world tilted, just a little.</p></div>
+        </div>
+              <div class="milestone">
+          <div class="milestone__dot">❤️</div>
+          <div class="milestone__card"><h3>First Conversation</h3><p>we talked, and time forgot to pass.</p></div>
+        </div>
+              <div class="milestone">
+          <div class="milestone__dot">🌸</div>
+          <div class="milestone__card"><h3>Favorite Memory</h3><p>you know the one. I think about it daily.</p></div>
+        </div>
+              <div class="milestone">
+          <div class="milestone__dot">🌙</div>
+          <div class="milestone__card"><h3>Late Night Talks</h3><p>3am felt like the safest hour on earth.</p></div>
+        </div>
+              <div class="milestone">
+          <div class="milestone__dot">💖</div>
+          <div class="milestone__card"><h3>Endless Laughs</h3><p>my cheeks still hurt from some of them.</p></div>
+        </div>
+              <div class="milestone">
+          <div class="milestone__dot">🌹</div>
+          <div class="milestone__card"><h3>Forever</h3><p>the only milestone without an end date.</p></div>
+        </div>
+          </div>
+  </section>
 
-  $("#music-toggle").addEventListener("click", toggleMusic);
-  $("#music-volume").addEventListener("input", e => {
-    volume = e.target.value / 100;
-    if (ctx && !muted) master.gain.linearRampToValueAtTime(Math.max(volume, 0.0001), ctx.currentTime + 0.15);
-  });
+  <section class="langs section" id="langs">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>The same sentence, in every voice on earth</h2>
+      <p class="section-head__sub">they all translate back to you.</p>
+    </header>
+    <div class="langs__grid">
+              <div class="lang-tile">
+          <div class="lang-tile__name">English</div>
+          <div class="lang-tile__phrase">I Love You</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Urdu</div>
+          <div class="lang-tile__phrase">میں تم سے محبت کرتا ہوں</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Arabic</div>
+          <div class="lang-tile__phrase">أحبك</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">French</div>
+          <div class="lang-tile__phrase">Je t’aime</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">German</div>
+          <div class="lang-tile__phrase">Ich liebe dich</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Italian</div>
+          <div class="lang-tile__phrase">Ti amo</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Spanish</div>
+          <div class="lang-tile__phrase">Te amo</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Portuguese</div>
+          <div class="lang-tile__phrase">Eu te amo</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Russian</div>
+          <div class="lang-tile__phrase">Я тебя люблю</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Turkish</div>
+          <div class="lang-tile__phrase">Seni Seviyorum</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Hindi</div>
+          <div class="lang-tile__phrase">मैं तुमसे प्यार करता हूँ</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Japanese</div>
+          <div class="lang-tile__phrase">愛してる</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Chinese</div>
+          <div class="lang-tile__phrase">我爱你</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Korean</div>
+          <div class="lang-tile__phrase">사랑해</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Bengali</div>
+          <div class="lang-tile__phrase">আমি তোমাকে ভালোবাসি</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Greek</div>
+          <div class="lang-tile__phrase">Σ’ αγαπώ</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Dutch</div>
+          <div class="lang-tile__phrase">Ik hou van jou</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Swedish</div>
+          <div class="lang-tile__phrase">Jag älskar dig</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Norwegian</div>
+          <div class="lang-tile__phrase">Jeg elsker deg</div>
+        </div>
+              <div class="lang-tile">
+          <div class="lang-tile__name">Finnish</div>
+          <div class="lang-tile__phrase">Minä rakastan sinua</div>
+        </div>
+          </div>
+  </section>
 
-  /* short, distinct sound effects — separate from the music loop */
-  function sfx(kind) {
-    if (!ctx || muted) return;
-    const t = ctx.currentTime;
-    if (kind === "click")  { note(1046, t, 0.28, 0.10); }
-    else if (kind === "pop")     { note(880, t, 0.22, 0.11); note(1318, t + 0.05, 0.2, 0.08); }
-    else if (kind === "chime")   { note(1568, t, 0.5, 0.09); note(2093, t + 0.08, 0.45, 0.06); }
-    else if (kind === "whoosh")  { note(220, t, 0.6, 0.07); note(440, t + 0.05, 0.5, 0.05); }
-    else if (kind === "seal")    { note(150, t, 0.35, 0.14); }
-    else if (kind === "notif")   { note(880, t, 0.4, 0.12); note(1174.66, t + 0.1, 0.5, 0.1); }
-  }
+  <!-- ── LOVE MAP: plain 2D canvas, no WebGL, no external map files ── -->
+  <section class="globe section" id="map-section">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>A world that loves you</h2>
+      <p class="section-head__sub">tap a glowing pin anywhere on earth</p>
+    </header>
+    <div class="globe__stage">
+      <div class="globe__container">
+        <canvas id="love-map" class="love-map"></canvas>
+      </div>
+      <div id="country-card" class="country-card" aria-live="polite">
+        <button class="country-card__close" id="country-card-close" aria-label="Close">×</button>
+        <div class="country-card__flag" id="cc-flag">🌍</div>
+        <h3 class="country-card__name" id="cc-name">—</h3>
+        <p class="country-card__lang" id="cc-lang">—</p>
+        <p class="country-card__phrase" id="cc-phrase">—</p>
+        <p class="country-card__pron" id="cc-pron">—</p>
+        <p class="country-card__trans">means “I love you”</p>
+        <button class="country-card__listen" id="cc-listen">🔊 Listen</button>
+      </div>
+      <div class="globe__progress">explore the world · <span id="visited-count">0</span> countries visited</div>
+      <button class="laiba-mode-btn" id="laiba-mode-btn">✨ Laiba Mode ✨</button>
+      <div class="laiba-subtitle" id="laiba-subtitle" aria-live="polite"></div>
+    </div>
+  </section>
 
-  function dreamMode(on) {
-    if (ctx) wet.gain.linearRampToValueAtTime(on ? 0.65 : 0.3, ctx.currentTime + 1.2);
-  }
+  <section class="letter section" id="letter">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>Something sealed, only for you</h2>
+      <p class="section-head__sub">tap the envelope, Laiba.</p>
+    </header>
+    <div class="letter__stage">
+      <div class="envelope" id="envelope" role="button" tabindex="0" aria-label="Open the love letter">
+        <div class="envelope__back"></div>
+        <div class="envelope__paper" id="envelope-paper">
+          <div class="letter__body">
+            <p class="letter__line">Laiba,</p>
+            <p class="letter__line">No matter what language I choose,</p>
+            <p class="letter__line">every word still means the same thing.</p>
+            <p class="letter__line letter__line--big">I Love You.</p>
+            <p class="letter__line">Thank you for making ordinary days feel magical.</p>
+            <p class="letter__line">You are my favorite chapter,</p>
+            <p class="letter__line">my safest place,</p>
+            <p class="letter__line">and my happiest thought.</p>
+            <p class="letter__line letter__line--big">❤️</p>
+          </div>
+        </div>
+        <div class="envelope__front"></div>
+        <div class="envelope__flap"></div>
+        <div class="envelope__seal">❤</div>
+      </div>
+    </div>
+  </section>
 
-  return { start, sfx, dreamMode };
-})();
+  <section class="tree section" id="tree-section">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>The wish tree</h2>
+      <p class="section-head__sub">every glowing leaf holds a wish for us. pick them — they always grow back.</p>
+    </header>
+    <div class="tree__stage">
+      <svg id="wish-tree" class="tree__svg" viewBox="0 0 600 640">
+        <defs>
+          <radialGradient id="leafGlow" cx="50%" cy="45%" r="60%">
+            <stop offset="0%" stop-color="#ffe9a8"/><stop offset="55%" stop-color="#f5c86b"/><stop offset="100%" stop-color="#e08fc0"/>
+          </radialGradient>
+          <linearGradient id="trunkGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#8a4a6e"/><stop offset="100%" stop-color="#5a2144"/>
+          </linearGradient>
+        </defs>
+        <ellipse cx="300" cy="612" rx="200" ry="18" fill="rgba(255,94,168,0.14)"/>
+        <path fill="url(#trunkGrad)" d="M285 620 C288 520 272 470 236 420 C270 448 284 480 292 520 C294 460 288 420 300 360 C312 420 306 460 308 520 C316 480 330 448 364 420 C328 470 312 520 315 620 Z"/>
+                  <circle class="leaf" data-wish="0" cx="246.7" cy="268.7" r="12"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="1" cx="393.7" cy="265" r="14"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="2" cx="318.1" cy="141.9" r="16"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="3" cx="341.6" cy="270.4" r="18"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="4" cx="344.1" cy="270.9" r="20"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="5" cx="211.1" cy="196.5" r="12"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="6" cx="336.4" cy="159" r="14"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="7" cx="353.7" cy="323" r="16"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="8" cx="458.3" cy="306.5" r="18"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="9" cx="367.5" cy="274.1" r="20"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="10" cx="428.5" cy="263.5" r="12"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="11" cx="287.7" cy="144.9" r="14"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="12" cx="372" cy="289.5" r="16"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="13" cx="367.1" cy="161.6" r="18"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="14" cx="361" cy="289" r="20"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="15" cx="286.7" cy="221.7" r="12"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="16" cx="195.8" cy="264" r="14"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="17" cx="324.4" cy="139" r="16"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="18" cx="226.6" cy="331.1" r="18"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="19" cx="274" cy="288.6" r="20"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="20" cx="340.2" cy="300.9" r="12"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="21" cx="346.5" cy="149.5" r="14"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="22" cx="346.7" cy="259.5" r="16"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+                  <circle class="leaf" data-wish="23" cx="318.2" cy="142.8" r="18"
+            fill="url(#leafGlow)" opacity="0.9" tabindex="0" role="button" aria-label="Reveal a wish"></circle>
+              </svg>
+      <div class="tree__wish" id="tree-wish"></div>
+    </div>
+  </section>
 
-/* the ONE gesture that unlocks everything */
-$("#gate-btn").addEventListener("click", () => {
-  sound.start();
-  $("#gate").classList.remove("is-visible");
-  $("#music-dock").classList.add("is-visible");
-  if (window.gsap) gsap.to("#experience", { opacity: 1, duration: 1.1, ease: "power2.out", onComplete: () => window.ScrollTrigger && ScrollTrigger.refresh() });
-  else $("#experience").style.opacity = 1;
-});
+  <section class="lanterns section" id="lanterns-section">
+    <header class="section-head section-head--light">
+      <h2 class="section-head__title" data-split>Light a lantern for us</h2>
+      <p class="section-head__sub">tap the night sky — each lantern carries a message upward.</p>
+    </header>
+    <canvas id="lantern-canvas" class="lanterns__canvas"></canvas>
+  </section>
 
-/* ── CURSOR (desktop only, throttled so it never piles up nodes) ────── */
-if (FINE_POINTER && !RM) {
-  document.body.classList.add("cursor-active");
-  const cur = $("#cursor");
-  let mx = innerWidth / 2, my = innerHeight / 2, cx = mx, cy = my, lastTrail = 0;
-  addEventListener("pointermove", e => {
-    mx = e.clientX; my = e.clientY;
-    const now = performance.now();
-    if (now - lastTrail > 110) {
-      lastTrail = now;
-      const t = document.createElement("span");
-      t.className = "cursor-trail"; t.textContent = "❤";
-      t.style.left = mx + "px"; t.style.top = my + "px";
-      document.body.appendChild(t);
-      setTimeout(() => t.remove(), 750);
-    }
-    cur.classList.toggle("is-hovering", !!e.target.closest("button,a,.reason-card,.leaf,.sky-star,.envelope"));
-  });
-  (function follow() {
-    cx += (mx - cx) * 0.3; cy += (my - cy) * 0.3;
-    cur.style.transform = `translate(${cx}px,${cy}px) translate(-50%,-50%)`;
-    requestAnimationFrame(follow);
-  })();
-}
+  <section class="nightsky section" id="nightsky-section">
+    <header class="section-head section-head--light">
+      <h2 class="section-head__title" data-split>Your night sky</h2>
+      <p class="section-head__sub">every star knows a reason. some of them keep secrets. tap them.</p>
+    </header>
+    <div class="nightsky__stage" id="nightsky-stage"></div>
+    <div class="nightsky__reveal" id="nightsky-reveal"></div>
+  </section>
 
-addEventListener("pointerdown", e => {
-  if (e.target.closest("#gate")) return;
-  const r = document.createElement("span");
-  r.className = "click-ripple"; r.style.left = e.clientX + "px"; r.style.top = e.clientY + "px";
-  document.body.appendChild(r); setTimeout(() => r.remove(), 700);
-  burstHearts(e.clientX, e.clientY, RM ? 3 : 7);
-});
-function burstHearts(x, y, n = 7, chars = ["❤", "💗", "✨"]) {
-  for (let i = 0; i < n; i++) {
-    const h = document.createElement("span");
-    h.className = "burst-heart"; h.textContent = pick(chars);
-    h.style.left = x + "px"; h.style.top = y + "px"; h.style.fontSize = rand(12, 24) + "px";
-    document.body.appendChild(h);
-    const ang = rand(0, Math.PI * 2), dist = rand(40, 120);
-    if (window.gsap) {
-      gsap.to(h, { x: Math.cos(ang) * dist, y: Math.sin(ang) * dist - rand(20, 70),
-        rotation: rand(-120, 120), opacity: 0, scale: rand(0.4, 0.7),
-        duration: rand(0.7, 1.2), ease: "power2.out", onComplete: () => h.remove() });
-    } else { setTimeout(() => h.remove(), 900); }
-  }
-}
+  <section class="finale section" id="finale">
+    <canvas id="finale-canvas" class="finale__canvas" aria-hidden="true"></canvas>
+    <div class="finale__text" id="finale-text"></div>
+  </section>
 
-/* ── SCROLL STORY (native smooth scroll — no Lenis dependency) ─────── */
-const hasGSAP = !!(window.gsap && window.ScrollTrigger);
-function reveal(el, opts = {}) {
-  if (!hasGSAP) { el.style.opacity = 1; return; }
-  gsap.from(el, Object.assign({ opacity: 0, y: 24, duration: 0.8, ease: "power2.out",
-    scrollTrigger: { trigger: el, start: "top 85%" } }, opts));
-}
+  <footer class="footer">
+    <p>made with every heartbeat · try typing <em>Laiba</em>, <em>Love</em>, or <em>Forever</em> anywhere ✨</p>
+  </footer>
+</main>
 
-$$("[data-split], .section-head__title").forEach(el => reveal(el, { y: 30 }));
+<div class="reason-overlay" id="reason-overlay">
+  <div class="reason-overlay__card" id="reason-overlay-card">
+    <div class="reason-overlay__num" id="reason-overlay-num"></div>
+    <p class="reason-overlay__text" id="reason-overlay-text"></p>
+    <button class="reason-overlay__close" id="reason-overlay-close">close ❤</button>
+  </div>
+</div>
 
-(() => {
-  const box = $(".hero__petals");
-  for (let i = 0; i < (RM ? 0 : 12); i++) {
-    const p = document.createElement("span");
-    p.className = "petal"; p.textContent = pick(["🌸", "🌷", "💮"]);
-    p.style.cssText = `left:${rand(0,100)}%;font-size:${rand(14,26)}px;animation-duration:${rand(10,18)}s;animation-delay:${rand(-14,0)}s;`;
-    box.appendChild(p);
-  }
-})();
-
-if (hasGSAP) {
-  gsap.timeline({ scrollTrigger: { trigger: "#ch1", start: "top 65%" } })
-    .from(".sunrise__sun", { y: 100, opacity: 0, duration: 1.3, ease: "power2.out" })
-    .to(".flower", { scale: 1, y: 0, duration: 0.8, ease: "back.out(2)", stagger: 0.12 }, "-=0.7")
-    .to(".bird", { opacity: 1, duration: 0.4, stagger: 0.2, onComplete: () => {
-      $$(".bird").forEach((b, i) => {
-        b.style.left = "-8%"; b.style.top = 12 + i * 12 + "%";
-        gsap.to(b, { left: "108%", duration: rand(8, 11), repeat: -1, ease: "none", delay: i * 2 });
-      });
-    }}, "-=0.5");
-
-  ScrollTrigger.create({ trigger: "#ch2", start: "top 60%", once: true, onEnter: () => {
-    gsap.to("#phone-notif", { y: 0, opacity: 1, duration: 0.8, ease: "elastic.out(1,0.6)" });
-    sound.sfx("notif");
-  }});
-
-  gsap.from(".frame", { opacity: 0, y: 44, duration: 0.8, stagger: 0.1, ease: "power3.out",
-    scrollTrigger: { trigger: ".frames", start: "top 85%" } });
-
-  const el = $("#handwriting");
-  el.innerHTML = el.textContent.split("").map(c => c === " " ? " " : `<span class="hand-char">${c}</span>`).join("");
-  gsap.to("#handwriting .hand-char", { opacity: 1, filter: "blur(0px)", duration: 0.45, stagger: 0.05, ease: "power2.out",
-    scrollTrigger: { trigger: "#ch5", start: "top 60%" } });
-}
-
-/* ── 100 REASON CARDS — content already in the DOM from PHP; JS only wires clicks ── */
-(() => {
-  const overlay = $("#reason-overlay");
-  const close = () => overlay.classList.remove("is-open");
-  $$(".reason-card").forEach(btn => {
-    btn.addEventListener("click", e => {
-      const i = +btn.dataset.index;
-      $("#reason-overlay-num").textContent = `reason ${i + 1} of ${DATA.reasons.length}`;
-      $("#reason-overlay-text").textContent = DATA.reasons[i];
-      overlay.classList.add("is-open");
-      sound.sfx("pop");
-      burstHearts(e.clientX, e.clientY, 6);
-    });
-  });
-  $("#reason-overlay-close").addEventListener("click", close);
-  overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
-  addEventListener("keydown", e => { if (e.key === "Escape") close(); });
-  if (hasGSAP) gsap.from(".reason-card", { opacity: 0, y: 20, duration: 0.5,
-    stagger: { each: 0.008, from: "random" }, scrollTrigger: { trigger: "#reasons-field", start: "top 88%" } });
-})();
-
-/* ── LOVE COUNTER → ∞ ────────────────────────────────────────────── */
-(() => {
-  const val = $("#counter-value"), foot = $("#counter-foot"), cv = $("#counter-canvas"), ctx = cv.getContext("2d");
-  let played = false;
-  if (!hasGSAP) { val.textContent = "∞"; return; }
-  ScrollTrigger.create({ trigger: "#counter-section", start: "top 55%", onEnter: () => { if (!played) { played = true; run(); } } });
-  function run() {
-    const c = { n: 1 };
-    gsap.to(c, { n: 100, duration: 2.6, ease: "power2.in", onUpdate: () => val.textContent = Math.floor(c.n),
-      onComplete: () => {
-        let s = 0;
-        const spin = setInterval(() => {
-          val.textContent = ["999","9,999","10⁶","10⁹"][s] || "…";
-          if (++s > 4) { clearInterval(spin); val.textContent = "∞"; val.classList.add("is-infinity");
-            foot.textContent = "some numbers were never meant to end."; shatter(); }
-        }, 220);
-      }});
-  }
-  function shatter() {
-    const rect = val.getBoundingClientRect(), secRect = $("#counter-section").getBoundingClientRect();
-    cv.width = secRect.width; cv.height = secRect.height;
-    const cx0 = rect.left - secRect.left + rect.width / 2, cy0 = rect.top - secRect.top + rect.height / 2;
-    const hearts = Array.from({ length: RM ? 10 : 40 }, () => ({
-      x: cx0 + rand(-rect.width/3, rect.width/3), y: cy0 + rand(-rect.height/3, rect.height/3),
-      vx: rand(-2, 2), vy: rand(-4, -1), g: 0.05, s: rand(8, 18), a: 1, rot: rand(0,6), spin: rand(-0.08,0.08)
-    }));
-    (function draw() {
-      ctx.clearRect(0,0,cv.width,cv.height);
-      let alive = false;
-      hearts.forEach(h => {
-        if (h.a <= 0) return; alive = true;
-        h.x += h.vx; h.y += h.vy; h.vy += h.g; h.a -= 0.01; h.rot += h.spin;
-        ctx.save(); ctx.translate(h.x, h.y); ctx.rotate(h.rot);
-        ctx.globalAlpha = clamp(h.a,0,1); ctx.font = `${h.s}px serif`; ctx.fillStyle = "#ff5ea8";
-        ctx.fillText("❤", 0, 0); ctx.restore();
-      });
-      if (alive) requestAnimationFrame(draw);
-    })();
-  }
-})();
-
-/* ── TIMELINE ─────────────────────────────────────────────────────── */
-if (hasGSAP) {
-  gsap.to(".timeline__line-fill", { height: "100%", ease: "none",
-    scrollTrigger: { trigger: ".timeline__track", start: "top 70%", end: "bottom 60%", scrub: 0.5 } });
-  $$(".milestone").forEach(m => {
-    gsap.timeline({ scrollTrigger: { trigger: m, start: "top 80%" } })
-      .from($(".milestone__dot", m), { scale: 0, rotation: -140, duration: 0.6, ease: "back.out(2.2)" })
-      .from($(".milestone__card", m), { opacity: 0, x: 40, duration: 0.6, ease: "power3.out" }, "-=0.3");
-  });
-  gsap.from(".lang-tile", { opacity: 0, y: 28, duration: 0.6, ease: "power3.out",
-    stagger: { each: 0.04 }, scrollTrigger: { trigger: ".langs__grid", start: "top 88%" } });
-}
-
-/* ── VOICE PLAYBACK ───────────────────────────────────────────────── */
-let voices = [];
-function loadVoices() { voices = speechSynthesis.getVoices(); }
-if ("speechSynthesis" in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
-function speakLove(text, lang) {
-  if (!("speechSynthesis" in window)) return;
-  speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang;
-  const base = lang.split("-")[0];
-  u.voice = voices.find(v => v.lang === lang) || voices.find(v => v.lang && v.lang.startsWith(base)) || null;
-  u.rate = 0.88; u.pitch = 1.05;
-  speechSynthesis.speak(u);
-}
-
-/* ── LOVE MAP — plain 2D canvas: continents drawn from lat/lon points,
-   country pins placed the same way. No WebGL, no textures, no CDN globe
-   assets to fail — this is why the map wasn't showing before. ───────── */
-(() => {
-  const canvas = $("#love-map");
-  const ctx = canvas.getContext("2d");
-  const wrap = canvas.parentElement;
-  const countries = DATA.countries;
-  const continents = DATA.continents;
-  const visited = new Set();
-  let W = 0, H = 0, DPR = Math.min(devicePixelRatio || 1, 2);
-  let hoverIdx = -1, running = false, laibaRunning = false;
-  let arcs = []; // {from:[x,y], to:[x,y], progress}
-  let heartMode = null; // {t} 0..1 progress toward heart shape
-
-  function project(lon, lat) {
-    return [ (lon + 180) / 360 * W, (90 - lat) / 180 * H ];
-  }
-
-  function resize() {
-    const rect = wrap.getBoundingClientRect();
-    W = canvas.width = rect.width * DPR;
-    H = canvas.height = rect.height * DPR;
-    canvas.style.width = rect.width + "px";
-    canvas.style.height = rect.height + "px";
-    draw();
-  }
-  addEventListener("resize", resize);
-
-  function smoothPath(pts) {
-    ctx.beginPath();
-    const p0 = project(...pts[0]);
-    ctx.moveTo(p0[0], p0[1]);
-    for (let i = 1; i < pts.length; i++) {
-      const p = project(...pts[i]);
-      ctx.lineTo(p[0], p[1]);
-    }
-    ctx.closePath();
-  }
-
-  function drawStars() {
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
-    for (let i = 0; i < 60; i++) {
-      const x = (i * 137.5) % W, y = (i * 97.3) % H;
-      ctx.globalAlpha = 0.15 + (i % 5) * 0.1;
-      ctx.beginPath(); ctx.arc(x, y, 1 * DPR, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  function draw() {
-    ctx.clearRect(0, 0, W, H);
-    // ocean
-    const oceanGrad = ctx.createLinearGradient(0, 0, 0, H);
-    oceanGrad.addColorStop(0, "#2c0f38"); oceanGrad.addColorStop(1, "#451a4e");
-    ctx.fillStyle = oceanGrad; ctx.fillRect(0, 0, W, H);
-    drawStars();
-
-    // continents (soft glowing landmasses)
-    Object.values(continents).forEach(pts => {
-      smoothPath(pts);
-      const grad = ctx.createLinearGradient(0, 0, 0, H);
-      grad.addColorStop(0, "rgba(255,180,215,0.28)");
-      grad.addColorStop(1, "rgba(200,140,230,0.22)");
-      ctx.fillStyle = grad; ctx.fill();
-      ctx.strokeStyle = "rgba(255,224,240,0.35)"; ctx.lineWidth = 1 * DPR; ctx.stroke();
-    });
-
-    // arcs (Laiba Mode golden beams)
-    arcs.forEach(a => {
-      const n = Math.floor(a.progress * 40);
-      if (n < 2) return;
-      ctx.beginPath();
-      for (let i = 0; i <= n; i++) {
-        const t = i / 40;
-        const x = a.from[0] + (a.to[0] - a.from[0]) * t;
-        const y = a.from[1] + (a.to[1] - a.from[1]) * t - Math.sin(t * Math.PI) * a.lift;
-        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = "rgba(245,200,107,0.95)";
-      ctx.lineWidth = 2 * DPR;
-      ctx.shadowColor = "rgba(245,200,107,0.7)"; ctx.shadowBlur = 6 * DPR;
-      ctx.stroke(); ctx.shadowBlur = 0;
-    });
-
-    // pins (or heart-shape positions during Laiba Mode finale)
-    countries.forEach((c, i) => {
-      let x, y;
-      if (heartMode) {
-        const [hx, hy] = heartMode.positions[i];
-        x = hx; y = hy;
-      } else {
-        [x, y] = project(c[3], c[2]);
-      }
-      const isVisited = visited.has(i);
-      const isHover = i === hoverIdx;
-      const r = (isHover ? 5 : isVisited ? 4 : 3) * DPR * (heartMode ? 1.3 : 1);
-      ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = isVisited ? "rgba(245,200,107,0.25)" : "rgba(255,124,187,0.22)";
-      ctx.fill();
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fillStyle = isVisited ? "#f5c86b" : "#ff7cbb";
-      ctx.fill();
-      if (isHover && !heartMode) {
-        ctx.font = `${12 * DPR}px Outfit, sans-serif`;
-        ctx.fillStyle = "#ffeaf4"; ctx.textAlign = "center";
-        ctx.fillText(`${c[1]} ${c[0]}`, x, y - 12 * DPR);
-      }
-    });
-  }
-
-  function nearestCountry(px, py) {
-    let best = -1, bestD = 16 * DPR; // hit radius
-    countries.forEach((c, i) => {
-      const [x, y] = project(c[3], c[2]);
-      const d = Math.hypot(x - px, y - py);
-      if (d < bestD) { bestD = d; best = i; }
-    });
-    return best;
-  }
-
-  function eventPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-    return [cx * DPR, cy * DPR];
-  }
-
-  canvas.addEventListener("pointermove", e => {
-    if (laibaRunning) return;
-    const [px, py] = eventPos(e);
-    const idx = nearestCountry(px, py);
-    if (idx !== hoverIdx) { hoverIdx = idx; draw(); }
-  });
-  canvas.addEventListener("click", e => {
-    if (laibaRunning) return;
-    const [px, py] = eventPos(e);
-    const idx = nearestCountry(px, py);
-    if (idx >= 0) openCountry(idx);
-  });
-
-  function openCountry(i) {
-    const c = countries[i];
-    $("#cc-flag").textContent = c[1];
-    $("#cc-name").textContent = c[0];
-    $("#cc-lang").textContent = c[4];
-    $("#cc-phrase").textContent = c[5];
-    $("#cc-pron").textContent = "“" + c[6] + "”";
-    $("#country-card").classList.add("is-open");
-    $("#cc-listen").onclick = () => { speakLove(c[5], c[7]); sound.sfx("chime"); };
-    sound.sfx("click");
-    if (!visited.has(i)) {
-      visited.add(i);
-      $("#visited-count").textContent = visited.size;
-      if (visited.size >= 5) $("#laiba-mode-btn").classList.add("is-visible");
-    }
-    draw();
-  }
-  $("#country-card-close").addEventListener("click", () => $("#country-card").classList.remove("is-open"));
-
-  /* ── Laiba Mode: golden beams from Pakistan to every visited country,
-     each speaking its phrase, then the pins gather into a heart. ───── */
-  async function laibaMode() {
-    if (laibaRunning) return;
-    laibaRunning = true;
-    $("#country-card").classList.remove("is-open");
-    $("#laiba-mode-btn").classList.remove("is-visible");
-    sound.dreamMode(true);
-    const sub = $("#laiba-subtitle");
-    const pk = project(countries[0][3], countries[0][2]);
-    arcs = [];
-    const targets = [...visited].filter(i => i !== 0);
-
-    for (const i of targets) {
-      const c = countries[i];
-      const to = project(c[3], c[2]);
-      const arc = { from: pk, to, progress: 0, lift: rand(40, 90) * DPR };
-      arcs.push(arc);
-      sub.textContent = `${c[1]} ${c[5]} — "I love you"`;
-      sub.classList.add("is-visible");
-      speakLove(c[5], c[7]);
-      await animateArc(arc);
-      await sleep(1400);
-    }
-    sub.textContent = "…and every path leads back to you, Laiba.";
-    await sleep(2000);
-    sub.classList.remove("is-visible");
-    await heartFinale();
-    arcs = [];
-    sound.dreamMode(false);
-    laibaRunning = false;
-    $("#laiba-mode-btn").classList.add("is-visible");
-    draw();
-  }
-  function animateArc(arc) {
-    return new Promise(resolve => {
-      const start = performance.now();
-      (function step(now) {
-        arc.progress = clamp((now - start) / 900, 0, 1);
-        draw();
-        if (arc.progress < 1) requestAnimationFrame(step); else resolve();
-      })(start);
-    });
-  }
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-  function heartPositions() {
-    const cx = W / 2, cy = H / 2, scale = Math.min(W, H) / 34;
-    return countries.map((_, i) => {
-      const t = (i / countries.length) * Math.PI * 2;
-      const hx = 16 * Math.pow(Math.sin(t), 3);
-      const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-      return [cx + hx * scale, cy + hy * scale];
-    });
-  }
-  function heartFinale() {
-    return new Promise(resolve => {
-      const targetPositions = heartPositions();
-      const startPositions = countries.map((c, i) => project(c[3], c[2]));
-      const start = performance.now();
-      (function grow(now) {
-        const t = clamp((now - start) / 1400, 0, 1);
-        heartMode = { positions: startPositions.map((p, i) => [
-          p[0] + (targetPositions[i][0] - p[0]) * easeInOut(t),
-          p[1] + (targetPositions[i][1] - p[1]) * easeInOut(t)
-        ]) };
-        draw();
-        if (t < 1) requestAnimationFrame(grow);
-        else setTimeout(() => shrinkBack(resolve), 2600);
-      })(start);
-    });
-  }
-  function shrinkBack(resolve) {
-    const from = heartMode.positions;
-    const to = countries.map(c => project(c[3], c[2]));
-    const start = performance.now();
-    (function step(now) {
-      const t = clamp((now - start) / 1200, 0, 1);
-      heartMode = { positions: from.map((p, i) => [
-        p[0] + (to[i][0] - p[0]) * easeInOut(t),
-        p[1] + (to[i][1] - p[1]) * easeInOut(t)
-      ]) };
-      draw();
-      if (t < 1) requestAnimationFrame(step);
-      else { heartMode = null; draw(); resolve(); }
-    })(start);
-  }
-  function easeInOut(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2; }
-
-  $("#laiba-mode-btn").addEventListener("click", laibaMode);
-
-  onVisible(wrap, v => { running = v; if (v) { resize(); } });
-  resize();
-})();
-
-/* ── LOVE LETTER ──────────────────────────────────────────────────── */
-(() => {
-  const env = $("#envelope");
-  let open = false;
-  function toggle() {
-    open = !open;
-    env.classList.toggle("is-open", open);
-    sound.sfx(open ? "seal" : "whoosh");
-    if (open && hasGSAP) {
-      gsap.fromTo(".letter__line", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.6, stagger: 0.3, delay: 1.1, ease: "power2.out" });
-      burstHearts(innerWidth / 2, innerHeight / 2, 10, ["❤", "💌", "✨"]);
-    } else if (open) {
-      $$(".letter__line").forEach(l => l.style.opacity = 1);
-    }
-  }
-  env.addEventListener("click", toggle);
-  env.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
-})();
-
-/* ── WISH TREE ────────────────────────────────────────────────────── */
-(() => {
-  const wishBox = $("#tree-wish");
-  $$(".leaf").forEach(leaf => {
-    const pickLeaf = () => {
-      const i = +leaf.dataset.wish;
-      wishBox.textContent = "🌿 " + DATA.wishes[i % DATA.wishes.length];
-      wishBox.classList.add("is-visible");
-      sound.sfx("pop");
-      clearTimeout(wishBox._t);
-      wishBox._t = setTimeout(() => wishBox.classList.remove("is-visible"), 3400);
-      const r0 = leaf.getAttribute("r");
-      if (hasGSAP) {
-        gsap.to(leaf, { attr: { r: 0 }, opacity: 0, duration: 0.4, ease: "power2.in",
-          onComplete: () => gsap.to(leaf, { attr: { r: r0 }, opacity: 0.9, duration: 1.2, delay: 2, ease: "elastic.out(1,0.5)" }) });
-      }
-      const rect = leaf.ownerSVGElement.getBoundingClientRect();
-      burstHearts(rect.left + rect.width * 0.5, rect.top + rect.height * 0.4, 5, ["✨", "🍃"]);
-    };
-    leaf.addEventListener("click", pickLeaf);
-    leaf.addEventListener("keydown", e => { if (e.key === "Enter") pickLeaf(); });
-  });
-})();
-
-/* ── FLOATING LANTERNS ────────────────────────────────────────────── */
-(() => {
-  const cv = $("#lantern-canvas"), ctx = cv.getContext("2d");
-  const MESSAGES = ["for every smile you gave me","for your softest heart","for the days ahead of us",
-    "for your dreams — all of them","for the way you love","for us, forever","for you, Laiba — always you"];
-  let lanterns = [], running = false, mi = 0;
-  function resize() { cv.width = cv.clientWidth; cv.height = cv.clientHeight; }
-  resize(); addEventListener("resize", resize);
-  cv.addEventListener("pointerdown", e => {
-    const r = cv.getBoundingClientRect();
-    if (lanterns.length > 10) lanterns.shift();
-    lanterns.push({ x: e.clientX - r.left, y: e.clientY - r.top, vy: rand(-0.5, -0.32),
-      sway: rand(0, 6), w: rand(24, 36), a: 0, msg: MESSAGES[mi++ % MESSAGES.length] });
-    sound.sfx("whoosh");
-  });
-  function roundRect(c, x, y, w, h, r) {
-    c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r);
-    c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
-  }
-  function draw() {
-    if (!running) return requestAnimationFrame(draw);
-    const W = cv.clientWidth, H = cv.clientHeight;
-    ctx.clearRect(0, 0, W, H);
-    lanterns.forEach(l => {
-      l.sway += 0.02; l.y += l.vy; l.x += Math.sin(l.sway) * 0.3; l.a = Math.min(1, l.a + 0.02);
-      if (l.y < -80) l.y = H + 60;
-      const h = l.w * 1.35;
-      ctx.save(); ctx.globalAlpha = l.a;
-      const g = ctx.createRadialGradient(l.x, l.y, 2, l.x, l.y, l.w * 1.8);
-      g.addColorStop(0, "rgba(255,200,120,0.5)"); g.addColorStop(1, "rgba(255,200,120,0)");
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(l.x, l.y, l.w * 1.8, 0, Math.PI * 2); ctx.fill();
-      const body = ctx.createLinearGradient(0, l.y - h/2, 0, l.y + h/2);
-      body.addColorStop(0, "#ffd98f"); body.addColorStop(0.6, "#ff9d5c"); body.addColorStop(1, "#e2653f");
-      ctx.fillStyle = body; roundRect(ctx, l.x - l.w/2, l.y - h/2, l.w, h, l.w * 0.3); ctx.fill();
-      ctx.globalAlpha = l.a * 0.85; ctx.fillStyle = "#ffeccf"; ctx.font = "300 12px Outfit, sans-serif"; ctx.textAlign = "center";
-      ctx.fillText(l.msg, l.x, l.y + h/2 + 20);
-      ctx.restore();
-    });
-    requestAnimationFrame(draw);
-  }
-  onVisible(cv, v => (running = v));
-  draw();
-})();
-
-/* ── NIGHT SKY ────────────────────────────────────────────────────── */
-(() => {
-  const stage = $("#nightsky-stage"), reveal = $("#nightsky-reveal");
-  const TOTAL = 20;
-  for (let i = 0; i < TOTAL; i++) {
-    const special = i % 5 === 4;
-    const b = document.createElement("button");
-    b.className = "sky-star" + (special ? " sky-star--special" : "");
-    b.style.left = rand(4, 96) + "%"; b.style.top = rand(6, 92) + "%";
-    b.innerHTML = `<span class="sky-star__core" style="--size:${special ? rand(8,11) : rand(4,8)}px;--tw:${rand(1.8,4)}s"></span>`;
-    b.addEventListener("click", e => {
-      reveal.textContent = special ? "⭐ " + pick(DATA.starSurprises) : "✦ " + DATA.starReasons[i % DATA.starReasons.length];
-      reveal.classList.add("is-visible");
-      sound.sfx("chime");
-      clearTimeout(reveal._t);
-      reveal._t = setTimeout(() => reveal.classList.remove("is-visible"), 4000);
-      burstHearts(e.clientX, e.clientY, special ? 12 : 6, special ? ["⭐","✨"] : ["✨","❤"]);
-    });
-    stage.appendChild(b);
-  }
-})();
-
-/* ── HIDDEN EASTER EGGS ───────────────────────────────────────────── */
-(() => {
-  let buffer = "";
-  const toast = document.createElement("div"); toast.className = "egg-toast"; document.body.appendChild(toast);
-  function say(msg) {
-    toast.textContent = msg; toast.classList.add("is-visible");
-    clearTimeout(toast._t); toast._t = setTimeout(() => toast.classList.remove("is-visible"), 3000);
-  }
-  addEventListener("keydown", e => {
-    if (e.key.length !== 1) return;
-    buffer = (buffer + e.key.toLowerCase()).slice(-10);
-    if (buffer.endsWith("laiba")) { say("✨ the secret word — for the secret keeper"); sound.sfx("chime"); burstHearts(innerWidth/2, innerHeight/2, 18); buffer = ""; }
-    else if (buffer.endsWith("forever")) { say("🎆 forever unlocked"); sound.sfx("chime");
-      for (let i = 0; i < 4; i++) setTimeout(() => burstHearts(rand(innerWidth*0.2,innerWidth*0.8), rand(innerHeight*0.2,innerHeight*0.6), 16, ["🎆","✨","❤"]), i*260);
-      buffer = ""; }
-    else if (buffer.endsWith("love")) { document.body.classList.toggle("mode-love"); say("💗 the world just turned a little pinker"); sound.sfx("pop"); buffer = ""; }
-  });
-})();
-
-/* ── FINALE ───────────────────────────────────────────────────────── */
-(() => {
-  const box = $("#finale-text");
-  const LINES = [["Laiba…", true], ["I Love You", false], ["In Every Language", false],
-    ["But More Than Any Language…", false], ["You Mean Everything To Me.", false],
-    ["❤️ Forever & Always ❤️", false], ["Thank you for being my favorite person.", true]];
-  const els = LINES.map(([t, hand]) => {
-    const d = document.createElement("div");
-    d.className = "finale__line" + (hand ? " finale__line--hand" : "");
-    d.textContent = t; box.appendChild(d); return d;
-  });
-  if (hasGSAP) {
-    const tl = gsap.timeline({ scrollTrigger: { trigger: "#finale", start: "top top", end: "bottom bottom", scrub: 0.6 } });
-    els.forEach((el, i) => {
-      tl.fromTo(el, { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 1, ease: "power2.out" });
-      if (i < els.length - 1) tl.to(el, { opacity: 0, scale: 1.05, duration: 0.7, ease: "power2.in" }, "+=0.5");
-    });
-  } else els.forEach(el => el.style.opacity = 1);
-
-  const cv = $("#finale-canvas"), ctx = cv.getContext("2d");
-  let running = false, rockets = [], sparks = [], confettiFired = false;
-  function resize() { cv.width = cv.clientWidth; cv.height = cv.clientHeight; }
-  resize(); addEventListener("resize", resize);
-  if (hasGSAP) {
-    ScrollTrigger.create({ trigger: "#finale", start: "top 80%", end: "bottom top", onToggle: s => running = s.isActive });
-    ScrollTrigger.create({ trigger: "#finale", start: "80% bottom", onEnter: () => {
-      if (confettiFired) return; confettiFired = true;
-      for (let i = 0; i < 3; i++) setTimeout(() => burstHearts(rand(innerWidth*0.2,innerWidth*0.8), rand(innerHeight*0.2,innerHeight*0.5), 20, ["🎉","❤","✨"]), i*250);
-    }});
-  }
-  let launchTimer = 0;
-  function launch() { rockets.push({ x: rand(cv.width*0.2, cv.width*0.8), y: cv.height + 10, vy: rand(-8.5,-6.5), hue: pick([330,45,275]) }); }
-  function explode(r) {
-    const n = RM ? 16 : 40;
-    for (let i = 0; i < n; i++) { const a = rand(0, Math.PI*2), sp = rand(1,4.4);
-      sparks.push({ x: r.x, y: r.y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, a: 1, hue: r.hue }); }
-  }
-  (function draw() {
-    requestAnimationFrame(draw);
-    if (!running) return;
-    ctx.clearRect(0, 0, cv.width, cv.height);
-    launchTimer--;
-    if (launchTimer <= 0 && !RM) { launchTimer = rand(40, 80); launch(); }
-    rockets.forEach((r, i) => {
-      r.y += r.vy; r.vy += 0.08;
-      ctx.beginPath(); ctx.arc(r.x, r.y, 2, 0, Math.PI*2); ctx.fillStyle = `hsl(${r.hue} 90% 75%)`; ctx.fill();
-      if (r.vy > -1) { explode(r); rockets.splice(i, 1); }
-    });
-    sparks.forEach((s, i) => {
-      s.x += s.vx; s.y += s.vy; s.vy += 0.03; s.a -= 0.014;
-      if (s.a <= 0) return sparks.splice(i, 1);
-      ctx.globalAlpha = s.a; ctx.beginPath(); ctx.arc(s.x, s.y, 1.8, 0, Math.PI*2);
-      ctx.fillStyle = `hsl(${s.hue} 95% 72%)`; ctx.fill();
-    });
-    ctx.globalAlpha = 1;
-  })();
-})();
-
-})();
+<!-- data rendered once by PHP, read once by JS — no duplicated content -->
+<script>const SITE_DATA = {"reasons":["I love your smile.","I love your kindness.","I love how you make ordinary days special.","I love your laugh.","I love your eyes.","I love the way you say my name.","I love how safe you feel.","I love your voice on a tired day.","I love your good-morning texts.","I love how you notice small things.","I love your patience with me.","I love your dreams, and how big they are.","I love how you care for people.","I love your honesty.","I love the way you scrunch your nose.","I love your late-night thoughts.","I love how you forgive.","I love your courage.","I love the way you listen.","I love your silly jokes.","I love your serious face when you focus.","I love how you celebrate tiny wins.","I love your taste in everything.","I love your warmth.","I love how you remember details.","I love that you check on me.","I love your hugs, even imagined ones.","I love how time disappears with you.","I love your stubbornness (a little).","I love your soft heart.","I love how you make me want to be better.","I love your excitement over small things.","I love your calm in my chaos.","I love how you handle bad days.","I love the future I picture with you.","I love your gentle teasing.","I love how your messages fix my mood.","I love your curiosity.","I love the sound of your happiness.","I love how real you are.","I love your loyalty.","I love your comfort in silence.","I love the way you love.","I love your strength you don't even see.","I love how you make strangers smile.","I love your sleepy voice.","I love your favorite-song energy.","I love how you defend the people you love.","I love that you chose me.","I love your grace when things go wrong.","I love your randomness.","I love your focus when you talk about your passions.","I love your version of every story.","I love your standards.","I love how you never give up on us.","I love your little rituals.","I love your handwriting.","I love how weekends feel with you in them.","I love your reactions to surprises.","I love your empathy.","I love that you laugh at my worst jokes.","I love how you say 'I'm fine' and I know everything anyway.","I love your ambition.","I love the peace you bring.","I love your photos, all of them.","I love how you turn nothing into a memory.","I love your comfort food choices.","I love your overthinking, because it means you care.","I love how the world softens around you.","I love your first-of-the-month optimism.","I love your playlists.","I love your bravery in being yourself.","I love your timing.","I love how you appear in my plans without trying.","I love your questions.","I love your answers.","I love the way you get excited about food.","I love your faith in good things.","I love the space you hold for me.","I love your midnight energy.","I love your morning grumpiness (it's cute).","I love your ideas.","I love how you make waiting feel okay.","I love your presence, even through a screen.","I love your standards for kindness.","I love your happy dance.","I love how you remember what I forget.","I love your gentleness with yourself, when you allow it.","I love your fire.","I love your softness.","I love how home is a person now.","I love the story of us so far.","I love the chapters we haven't written.","I love your tomorrow, and the one after.","I love that no distance changes this.","I love you on your best days.","I love you on your worst days.","I love you quietly.","I love you loudly.","I love you. That's the whole reason."],"wishes":["I wish for a hundred more of your laughs.","I wish to be your calm on loud days.","I wish every airport ends with you.","I wish for slow mornings together.","I wish to learn your favorite recipes.","I wish for a bookshelf we both fill.","I wish to see every sunset city with you.","I wish your dreams come true first.","I wish to hold your hand through winters.","I wish our jokes never get old.","I wish for a home with your name in it.","I wish to dance badly with you, often.","I wish for rain, chai, and you.","I wish to grow old and still flirt with you.","I wish every 11:11 keeps working.","I wish for more time — always with you.","I wish to be your favorite hello.","I wish to never be your goodbye.","I wish for us. Just us. Always us.","I wish you knew how loved you are."],"starReasons":["you make hard days survivable","your voice is my favorite sound","you believed in me first","you make me laugh until it hurts","you're gentle when the world isn't","you turn nothing into everything","your heart is the warmest place","you make time feel generous","you're beautiful without trying","you love with your whole self","you're my best decision","you feel like home","you make the future look bright","you never let me feel alone","you're the answer to old wishes","you're my favorite thought before sleep","you're the reason 11:11 works","you make ordinary streets romantic","you're brave in ways you don't see","you're my once-in-a-lifetime"],"starSurprises":["a surprise: you get one wish, I'll make it happen.","a surprise: a slow dance is owed to you, redeemable anytime.","a surprise: your next favorite meal is on me.","a surprise: one full day, planned entirely around you.","a surprise: a handwritten letter is already on its way.","a surprise: look up tonight — I picked a real star for you."],"countries":[["Pakistan","🇵🇰",30.4,69.3,"Urdu","میں تم سے محبت کرتا ہوں","main tum se mohabbat karta hoon","ur-PK"],["United States","🇺🇸",39.8,-98.6,"English","I love you","ai · luv · yoo","en-US"],["United Kingdom","🇬🇧",54,-2,"English","I love you","ai · luv · yoo","en-GB"],["France","🇫🇷",46.6,2.2,"French","Je t’aime","zhuh · tem","fr-FR"],["Germany","🇩🇪",51.2,10.4,"German","Ich liebe dich","ikh · lee-buh · dikh","de-DE"],["Italy","🇮🇹",42.8,12.5,"Italian","Ti amo","tee · ah-mo","it-IT"],["Spain","🇪🇸",40.3,-3.7,"Spanish","Te amo","teh · ah-mo","es-ES"],["Portugal","🇵🇹",39.6,-8,"Portuguese","Eu te amo","eh-oo · te · ah-moo","pt-PT"],["Brazil","🇧🇷",-10.8,-52.9,"Portuguese","Eu te amo","eh-oo · chee · ah-moo","pt-BR"],["Mexico","🇲🇽",23.9,-102.5,"Spanish","Te amo","teh · ah-mo","es-MX"],["Turkey","🇹🇷",39,35,"Turkish","Seni seviyorum","seh-nee · seh-vee-yo-room","tr-TR"],["Saudi Arabia","🇸🇦",24,45,"Arabic","أحبك","u-hib-bu-ka","ar-SA"],["India","🇮🇳",22.4,79,"Hindi","मैं तुमसे प्यार करता हूँ","main tumse pyaar karta hoon","hi-IN"],["Bangladesh","🇧🇩",23.7,90.3,"Bengali","আমি তোমাকে ভালোবাসি","ami tomake bhalobashi","bn-BD"],["China","🇨🇳",35.5,103.9,"Chinese","我爱你","wǒ · ài · nǐ","zh-CN"],["Japan","🇯🇵",36.5,138,"Japanese","愛してる","ai-shi-te-ru","ja-JP"],["South Korea","🇰🇷",36.4,127.9,"Korean","사랑해","sa-rang-hae","ko-KR"],["Thailand","🇹🇭",15.1,101,"Thai","ฉันรักคุณ","chan · rak · khun","th-TH"],["Vietnam","🇻🇳",16.6,106.3,"Vietnamese","Anh yêu em","ang · yeu · em","vi-VN"],["Malaysia","🇲🇾",3.8,109.7,"Malay","Saya cinta padamu","sa-ya · chin-ta · pa-da-mu","ms-MY"],["Indonesia","🇮🇩",-2.2,117.4,"Indonesian","Aku cinta kamu","a-ku · chin-ta · ka-mu","id-ID"],["Philippines","🇵🇭",12.9,121.8,"Filipino","Mahal kita","ma-hal · kee-ta","fil-PH"],["Russia","🇷🇺",61.5,96,"Russian","Я тебя люблю","ya · teb-ya · lyub-lyu","ru-RU"],["Ukraine","🇺🇦",49,31.4,"Ukrainian","Я тебе кохаю","ya · te-be · ko-kha-yu","uk-UA"],["Iran","🇮🇷",32.6,54.3,"Persian","دوستت دارم","doo-set · da-ram","fa-IR"],["Netherlands","🇳🇱",52.2,5.5,"Dutch","Ik hou van jou","ik · how · fan · yow","nl-NL"],["Greece","🇬🇷",39,22,"Greek","Σ’ αγαπώ","s’a-ga-po","el-GR"],["Norway","🇳🇴",61,9,"Norwegian","Jeg elsker deg","yai · el-sker · dai","nb-NO"],["Sweden","🇸🇪",62,15,"Swedish","Jag älskar dig","yag · el-skar · day","sv-SE"],["Finland","🇫🇮",64,26,"Finnish","Minä rakastan sinua","mee-na · ra-kas-tan · see-nua","fi-FI"],["Poland","🇵🇱",52,19.4,"Polish","Kocham cię","ko-ham · chyeh","pl-PL"],["Australia","🇦🇺",-25,134,"English","I love you","ai · luv · yoo","en-AU"],["Canada","🇨🇦",56,-106,"English","I love you","ai · luv · yoo","en-CA"],["New Zealand","🇳🇿",-41.8,172.8,"English","I love you","ai · luv · yoo","en-NZ"],["South Africa","🇿🇦",-29,25,"Zulu","Ngiyakuthanda","ngee-ya-koo-tan-da","zu-ZA"],["Egypt","🇪🇬",26.5,29.8,"Arabic","بحبك","ba-heb-bak","ar-EG"],["Argentina","🇦🇷",-35.4,-65.2,"Spanish","Te amo","teh · ah-mo","es-AR"],["Nigeria","🇳🇬",9.6,8,"Yoruba","Mo nífẹ̀ẹ́ rẹ","mo · nee-feh · reh","en-NG"],["Kenya","🇰🇪",0.2,37.9,"Swahili","Nakupenda","na-koo-pen-da","sw-KE"],["Morocco","🇲🇦",31.8,-7.1,"Arabic","كنبغيك","kan-bghi-k","ar-MA"],["Switzerland","🇨🇭",46.8,8.2,"German","Ich liebe dich","ikh · lee-buh · dikh","de-CH"],["Belgium","🇧🇪",50.6,4.7,"Dutch","Ik hou van jou","ik · how · fan · yow","nl-BE"],["Denmark","🇩🇰",56,10,"Danish","Jeg elsker dig","yai · el-sker · dai","da-DK"],["Ireland","🇮🇪",53.4,-8.2,"Irish","Tá grá agam duit","taw · graw · a-gum · ditch","ga-IE"],["Czechia","🇨🇿",49.8,15.5,"Czech","Miluji tě","mi-lu-yi · tyeh","cs-CZ"],["Romania","🇷🇴",45.9,25,"Romanian","Te iubesc","teh · yoo-besk","ro-RO"],["Hungary","🇭🇺",47.2,19.5,"Hungarian","Szeretlek","seh-ret-lek","hu-HU"],["Singapore","🇸🇬",1.35,103.8,"English","I love you","ai · luv · yoo","en-SG"],["Nepal","🇳🇵",28.4,84.1,"Nepali","म तिमीलाई माया गर्छु","ma · timilai · maya · garchu","ne-NP"],["Sri Lanka","🇱🇰",7.9,80.7,"Sinhala","මම ඔයාට ආදරෙයි","ma-ma · o-ya-ta · a-da-re-yi","si-LK"],["United Arab Emirates","🇦🇪",24,54,"Arabic","أحبك","u-hib-bu-ki","ar-AE"],["Qatar","🇶🇦",25.3,51.2,"Arabic","أحبك","u-hib-bu-ki","ar-QA"],["Ethiopia","🇪🇹",9.1,40.5,"Amharic","አፈቅርሻለሁ","a-fe-kir-sha-le-hu","am-ET"]],"continents":{"northAmerica":[[-165,68],[-140,70],[-95,75],[-75,68],[-65,60],[-58,48],[-75,35],[-80,25],[-97,18],[-105,20],[-115,30],[-125,40],[-125,50],[-135,58],[-165,68]],"southAmerica":[[-80,10],[-75,5],[-70,-5],[-70,-18],[-72,-30],[-70,-40],[-68,-50],[-65,-55],[-58,-52],[-48,-35],[-40,-20],[-35,-8],[-45,0],[-55,5],[-65,8],[-80,10]],"europe":[[-10,43],[-9,52],[0,60],[10,65],[25,70],[40,68],[38,55],[30,48],[20,42],[10,38],[0,37],[-6,36],[-10,43]],"africa":[[-17,20],[-5,32],[10,37],[20,32],[33,31],[40,15],[50,10],[51,-5],[45,-20],[35,-30],[25,-34],[15,-30],[12,-18],[9,4],[-10,10],[-17,20]],"asia":[[28,45],[30,55],[45,65],[60,70],[90,75],[130,73],[160,68],[170,60],[160,50],[150,40],[140,35],[130,30],[122,25],[110,20],[100,10],[95,5],[80,8],[70,15],[60,20],[50,25],[45,30],[35,35],[30,40],[28,45]],"australia":[[113,-22],[122,-18],[135,-12],[142,-11],[148,-20],[153,-28],[150,-38],[140,-38],[130,-32],[120,-34],[113,-22]]}};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+  // if cdnjs failed to load either file, retry once from a different CDN
+  if (!window.gsap) document.write('<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"><\/script>');
+</script>
+<script>
+  if (!window.ScrollTrigger) document.write('<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"><\/script>');
+</script>
+<script src="script.js"></script>
+</body>
+</html>
