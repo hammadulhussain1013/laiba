@@ -335,10 +335,13 @@ function burstHearts(x, y, n = 10, chars = ["❤", "💗", "💕", "✨"]) {
 }
 
 /* ── 06 · SMOOTH SCROLL + HERO + STORY ──────────────────────── */
-const lenis = new Lenis({ lerp: 0.09, smoothWheel: !RM });
-lenis.on("scroll", ScrollTrigger.update);
-gsap.ticker.add(t => lenis.raf(t * 1000));
-gsap.ticker.lagSmoothing(0);
+let lenis = null;
+try {
+  lenis = new Lenis({ lerp: 0.09, smoothWheel: !RM });
+  lenis.on("scroll", ScrollTrigger.update);
+  gsap.ticker.add(t => lenis.raf(t * 1000));
+  gsap.ticker.lagSmoothing(0);
+} catch (e) { console.warn("Lenis unavailable — falling back to native scroll.", e); }
 
 /* Hero petals */
 (() => {
@@ -691,6 +694,11 @@ const COUNTRIES = [
 
 const globe = (() => {
   const container = $("#globe-container");
+  if (!window.THREE) {
+    console.error("Three.js did not load — globe disabled.");
+    container.innerHTML = '<p style="color:#ffc8dd;text-align:center;padding-top:40vh;font-family:Outfit,sans-serif">couldn\u2019t load the 3D library — check your internet and refresh 💔</p>';
+    return {};
+  }
   const tooltip = $("#globe-tooltip");
   const R = 100;
   const visited = new Set();
@@ -700,6 +708,12 @@ const globe = (() => {
   let raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2(-2, -2);
   let hovered = null, inView = false, laibaRunning = false;
   let shootTimer = 0;
+
+  /* random point on a unit sphere (three r128 has no randomDirection) */
+  function randDir() {
+    const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+    return new THREE.Vector3(s * Math.cos(a), s * Math.sin(a), u);
+  }
 
   function latLonToVec3(lat, lon, r = R) {
     const phi = (90 - lat) * Math.PI / 180;
@@ -798,7 +812,7 @@ const globe = (() => {
     const starN = RM ? 300 : 1400;
     const pos = new Float32Array(starN * 3);
     for (let i = 0; i < starN; i++) {
-      const v = new THREE.Vector3().randomDirection().multiplyScalar(rand(500, 900));
+      const v = randDir().multiplyScalar(rand(500, 900));
       pos.set([v.x, v.y, v.z], i * 3);
     }
     starGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
@@ -926,7 +940,7 @@ const globe = (() => {
   }
 
   function shootStar() {
-    const from = new THREE.Vector3().randomDirection().multiplyScalar(650);
+    const from = randDir().multiplyScalar(650);
     const to = from.clone().add(new THREE.Vector3(rand(-300, 300), rand(-260, -80), rand(-300, 300)));
     const g = new THREE.BufferGeometry().setFromPoints([from, to]);
     const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 }));
@@ -1038,7 +1052,7 @@ const globe = (() => {
       const geo = new THREE.BufferGeometry();
       const start = new Float32Array(N * 3), end = new Float32Array(N * 3);
       for (let i = 0; i < N; i++) {
-        const v = new THREE.Vector3().randomDirection().multiplyScalar(R);
+        const v = randDir().multiplyScalar(R);
         start.set([v.x, v.y, v.z], i * 3);
         const u = rand(0, Math.PI * 2), s = rand(0.75, 1.02) * 7.5;
         const hx = 16 * Math.pow(Math.sin(u), 3);
@@ -1088,7 +1102,14 @@ const globe = (() => {
 
   /* lazy init when scrolled near */
   const initOnce = new IntersectionObserver(es => {
-    if (es.some(e => e.isIntersecting)) { init(); initOnce.disconnect(); }
+    if (es.some(e => e.isIntersecting)) {
+      try { init(); }
+      catch (err) {
+        console.error("Globe failed to start:", err);
+        container.innerHTML = '<p style="color:#ffc8dd;text-align:center;padding-top:40vh;font-family:Outfit,sans-serif">the globe needs WebGL + internet on first load 💔 — check the browser console (F12)</p>';
+      }
+      initOnce.disconnect();
+    }
   }, { rootMargin: "400px" });
   initOnce.observe(container);
 
