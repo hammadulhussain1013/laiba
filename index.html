@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>For Laiba ❤️</title>
+<meta name="description" content="A little universe, made only for Laiba." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Great+Vibes&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══════════════ AMBIENT BACKGROUND (aurora + particle canvas) ══════════════ -->
+<div class="aurora" aria-hidden="true">
+  <div class="aurora__blob aurora__blob--1"></div>
+  <div class="aurora__blob aurora__blob--2"></div>
+  <div class="aurora__blob aurora__blob--3"></div>
+</div>
+<canvas id="ambient-canvas" aria-hidden="true"></canvas>
+
+<!-- ══════════════ CUSTOM CURSOR ══════════════ -->
+<div id="cursor" class="cursor" aria-hidden="true">
+  <div class="cursor__heart">❤</div>
+</div>
+
+<!-- ══════════════ LOADING SCREEN ══════════════ -->
+<div id="loader" class="loader" role="status">
+  <div class="loader__stars" aria-hidden="true"></div>
+  <div class="loader__ring" aria-hidden="true">
+    <svg viewBox="0 0 120 120">
+      <circle class="loader__ring-bg" cx="60" cy="60" r="52"></circle>
+      <circle class="loader__ring-fg" cx="60" cy="60" r="52"></circle>
+    </svg>
+    <div class="loader__bloom" aria-hidden="true">🌸</div>
+  </div>
+  <p class="loader__text">Preparing something special for Laiba…</p>
+  <div class="loader__hearts" aria-hidden="true"></div>
+</div>
+
+<!-- ══════════════ MUSIC CONTROLS ══════════════ -->
+<div class="music-dock" id="music-dock">
+  <button id="music-toggle" class="music-dock__btn" aria-label="Play music" title="Music">
+    <span class="music-dock__icon">♪</span>
+  </button>
+  <input id="music-volume" class="music-dock__vol" type="range" min="0" max="100" value="55" aria-label="Music volume" />
+</div>
+
+<!-- ══════════════ MAIN EXPERIENCE ══════════════ -->
+<main id="experience" class="experience" style="opacity:0">
+
+  <!-- ── HERO ── -->
+  <section class="hero section" id="hero">
+    <div class="hero__petals" aria-hidden="true"></div>
+    <div class="hero__inner" data-parallax-scene>
+      <p class="hero__eyebrow" data-depth="0.4">a little universe, made for one person</p>
+      <h1 class="hero__title" data-depth="0.7">
+        <span class="split-line">Hi&nbsp;Laiba</span>
+        <span class="hero__heart-emoji split-line">❤️</span>
+      </h1>
+      <p class="hero__subtitle" data-depth="0.5">“I made something only for you.”</p>
+      <p class="hero__hint" data-depth="0.3">scroll slowly · click anywhere for hearts</p>
+    </div>
+    <div class="hero__scrollcue" aria-hidden="true"><span></span></div>
+  </section>
+
+  <!-- ── SCROLL STORY ── -->
+  <section class="chapter section" id="ch1">
+    <div class="chapter__scene chapter__scene--sunrise" aria-hidden="true">
+      <div class="sunrise__sun"></div>
+      <div class="sunrise__birds">
+        <span class="bird">𓅰</span><span class="bird">𓅯</span><span class="bird">𓅰</span>
+      </div>
+      <div class="sunrise__flowers">
+        <span class="flower">🌷</span><span class="flower">🌸</span><span class="flower">🌼</span><span class="flower">🌷</span><span class="flower">🌺</span>
+      </div>
+    </div>
+    <div class="chapter__copy">
+      <span class="chapter__num">chapter one</span>
+      <h2 class="chapter__title" data-split>When you entered my life…</h2>
+      <p class="chapter__body" data-split>everything quietly turned toward the light, the way flowers do at sunrise.</p>
+    </div>
+  </section>
+
+  <section class="chapter section" id="ch2">
+    <div class="chapter__scene" aria-hidden="true">
+      <div class="phone">
+        <div class="phone__screen">
+          <div class="phone__time">11:11</div>
+          <div class="phone__notif" id="phone-notif">
+            <div class="phone__notif-icon">💬</div>
+            <div class="phone__notif-text">
+              <strong>Laiba</strong>
+              <span>hey you ❤️</span>
+            </div>
+          </div>
+        </div>
+        <div class="phone__pulse"></div>
+      </div>
+    </div>
+    <div class="chapter__copy">
+      <span class="chapter__num">chapter two</span>
+      <h2 class="chapter__title" data-split>You became my favorite notification.</h2>
+      <p class="chapter__body" data-split>one name on my screen, and the whole day gets softer.</p>
+    </div>
+  </section>
+
+  <section class="chapter section" id="ch3">
+    <div class="chapter__scene chapter__scene--clouds" aria-hidden="true">
+      <div class="cloud cloud--1"></div>
+      <div class="cloud cloud--2"></div>
+      <div class="cloud cloud--3"></div>
+    </div>
+    <div class="chapter__copy">
+      <span class="chapter__num">chapter three</span>
+      <h2 class="chapter__title" data-split>You became my peace.</h2>
+      <p class="chapter__body" data-split>the quiet in the middle of everything loud.</p>
+    </div>
+  </section>
+
+  <section class="chapter section" id="ch4">
+    <div class="chapter__copy">
+      <span class="chapter__num">chapter four</span>
+      <h2 class="chapter__title" data-split>You became my happiest memory.</h2>
+      <p class="chapter__body" data-split>and somehow, you keep making new ones.</p>
+    </div>
+    <div class="frames" aria-hidden="true">
+      <figure class="frame frame--1"><div class="frame__ph">🌙<span>add our photo here</span></div><figcaption>that night</figcaption></figure>
+      <figure class="frame frame--2"><div class="frame__ph">☕<span>add our photo here</span></div><figcaption>that morning</figcaption></figure>
+      <figure class="frame frame--3"><div class="frame__ph">😂<span>add our photo here</span></div><figcaption>that laugh</figcaption></figure>
+      <figure class="frame frame--4"><div class="frame__ph">🌸<span>add our photo here</span></div><figcaption>that day</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="chapter section chapter--hand" id="ch5">
+    <div class="chapter__copy chapter__copy--center">
+      <span class="chapter__num">chapter five</span>
+      <h2 class="chapter__hand" id="handwriting">You became my favorite person.</h2>
+      <div class="chapter__glow" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ── 100 REASONS ── -->
+  <section class="reasons section" id="reasons">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>100 reasons, floating just for you</h2>
+      <p class="section-head__sub">tap any card, Laiba — every single one is true.</p>
+    </header>
+    <div class="reasons__field" id="reasons-field"></div>
+  </section>
+
+  <!-- ── LOVE COUNTER ── -->
+  <section class="counter section" id="counter-section">
+    <p class="counter__label">Reasons I Love You</p>
+    <div class="counter__value" id="counter-value">1</div>
+    <p class="counter__foot" id="counter-foot">…and counting</p>
+    <canvas id="counter-canvas" class="counter__canvas" aria-hidden="true"></canvas>
+  </section>
+
+  <!-- ── MEMORY TIMELINE ── -->
+  <section class="timeline section" id="timeline">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>Our little timeline</h2>
+      <p class="section-head__sub">every milestone unlocks as you arrive.</p>
+    </header>
+    <div class="timeline__track">
+      <div class="timeline__line" aria-hidden="true"><div class="timeline__line-fill"></div></div>
+      <div class="milestone"><div class="milestone__dot">✨</div><div class="milestone__card"><h3>First Smile</h3><p>the moment the world tilted, just a little.</p></div></div>
+      <div class="milestone"><div class="milestone__dot">❤️</div><div class="milestone__card"><h3>First Conversation</h3><p>we talked, and time forgot to pass.</p></div></div>
+      <div class="milestone"><div class="milestone__dot">🌸</div><div class="milestone__card"><h3>Favorite Memory</h3><p>you know the one. I think about it daily.</p></div></div>
+      <div class="milestone"><div class="milestone__dot">🌙</div><div class="milestone__card"><h3>Late Night Talks</h3><p>3am felt like the safest hour on earth.</p></div></div>
+      <div class="milestone"><div class="milestone__dot">💖</div><div class="milestone__card"><h3>Endless Laughs</h3><p>my cheeks still hurt from some of them.</p></div></div>
+      <div class="milestone"><div class="milestone__dot">🌹</div><div class="milestone__card"><h3>Forever</h3><p>the only milestone without an end date.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ── LANGUAGES ── -->
+  <section class="langs section" id="langs">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>The same sentence, in every voice on earth</h2>
+      <p class="section-head__sub">they all translate back to you.</p>
+    </header>
+    <div class="langs__grid" id="langs-grid"></div>
+  </section>
+
+  <!-- ── 3D LOVE GLOBE ── -->
+  <section class="globe section" id="globe-section">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>A world that loves you</h2>
+      <p class="section-head__sub">drag to spin · scroll on the globe to zoom · tap a glowing city of light</p>
+    </header>
+    <div class="globe__stage">
+      <div id="globe-container" class="globe__container"></div>
+      <div id="globe-tooltip" class="globe__tooltip" aria-hidden="true"></div>
+      <div id="country-card" class="country-card" aria-live="polite">
+        <button class="country-card__close" id="country-card-close" aria-label="Close">×</button>
+        <div class="country-card__flag" id="cc-flag">🌍</div>
+        <h3 class="country-card__name" id="cc-name">—</h3>
+        <p class="country-card__lang" id="cc-lang">—</p>
+        <p class="country-card__phrase" id="cc-phrase">—</p>
+        <p class="country-card__pron" id="cc-pron">—</p>
+        <p class="country-card__trans">means “I love you”</p>
+        <button class="country-card__listen" id="cc-listen">🔊 Listen</button>
+      </div>
+      <div class="globe__progress" id="globe-progress">explore the world · <span id="visited-count">0</span> countries visited</div>
+      <button class="laiba-mode-btn" id="laiba-mode-btn">✨ Laiba Mode ✨</button>
+      <div class="laiba-subtitle" id="laiba-subtitle" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- ── LOVE LETTER ── -->
+  <section class="letter section" id="letter">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>Something sealed, only for you</h2>
+      <p class="section-head__sub">tap the envelope, Laiba.</p>
+    </header>
+    <div class="letter__stage">
+      <div class="envelope" id="envelope" role="button" tabindex="0" aria-label="Open the love letter">
+        <div class="envelope__back"></div>
+        <div class="envelope__paper" id="envelope-paper">
+          <div class="letter__body" id="letter-body">
+            <p class="letter__line">Laiba,</p>
+            <p class="letter__line">No matter what language I choose,</p>
+            <p class="letter__line">every word still means the same thing.</p>
+            <p class="letter__line letter__line--big">I Love You.</p>
+            <p class="letter__line">Thank you for making ordinary days feel magical.</p>
+            <p class="letter__line">You are my favorite chapter,</p>
+            <p class="letter__line">my safest place,</p>
+            <p class="letter__line">and my happiest thought.</p>
+            <p class="letter__line letter__line--big">❤️</p>
+          </div>
+        </div>
+        <div class="envelope__front"></div>
+        <div class="envelope__flap"></div>
+        <div class="envelope__seal">❤</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── WISH TREE ── -->
+  <section class="tree section" id="tree-section">
+    <header class="section-head">
+      <h2 class="section-head__title" data-split>The wish tree</h2>
+      <p class="section-head__sub">every glowing leaf holds a wish for us. pick them — they always grow back.</p>
+    </header>
+    <div class="tree__stage">
+      <svg id="wish-tree" class="tree__svg" viewBox="0 0 600 640" aria-hidden="false"></svg>
+      <div class="tree__wish" id="tree-wish"></div>
+    </div>
+  </section>
+
+  <!-- ── LANTERN CEREMONY ── -->
+  <section class="lanterns section" id="lanterns-section">
+    <header class="section-head section-head--light">
+      <h2 class="section-head__title" data-split>Light a lantern for us</h2>
+      <p class="section-head__sub">tap the night sky — each lantern carries a message upward.</p>
+    </header>
+    <canvas id="lantern-canvas" class="lanterns__canvas"></canvas>
+  </section>
+
+  <!-- ── NIGHT SKY ── -->
+  <section class="nightsky section" id="nightsky-section">
+    <header class="section-head section-head--light">
+      <h2 class="section-head__title" data-split>Your night sky</h2>
+      <p class="section-head__sub">every star knows a reason. some of them keep secrets. tap them.</p>
+    </header>
+    <div class="nightsky__stage" id="nightsky-stage"></div>
+    <div class="nightsky__reveal" id="nightsky-reveal"></div>
+  </section>
+
+  <!-- ── FINALE ── -->
+  <section class="finale section" id="finale">
+    <canvas id="finale-canvas" class="finale__canvas" aria-hidden="true"></canvas>
+    <div class="finale__text" id="finale-text"></div>
+  </section>
+
+  <footer class="footer">
+    <p>made with every heartbeat · try typing <em>Laiba</em>, <em>Love</em>, or <em>Forever</em> anywhere ✨</p>
+  </footer>
+
+</main>
+
+<!-- Reason card expanded overlay -->
+<div class="reason-overlay" id="reason-overlay">
+  <div class="reason-overlay__card" id="reason-overlay-card">
+    <div class="reason-overlay__num" id="reason-overlay-num"></div>
+    <p class="reason-overlay__text" id="reason-overlay-text"></p>
+    <button class="reason-overlay__close" id="reason-overlay-close">close ❤</button>
+  </div>
+</div>
+
+<!-- Libraries (CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
